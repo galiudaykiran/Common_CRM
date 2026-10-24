@@ -1,0 +1,40 @@
+# Compiled class & package files
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Frontend dependencies & builds
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.output/
+.npm/
+
+# IDE / Editor folders
+.idea/
+**/.idea/
+*.iml
+.vscode/
+**/.vscode/
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & temp files
+*.log
+**/logs/
+*.tmp
+*.temp
+
+# Environment variables
+.env
+.env.*
+!.env.example
