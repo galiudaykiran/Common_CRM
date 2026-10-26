@@ -89,72 +89,54 @@ export const DashboardPage: React.FC = () => {
   ];
 
   return (
-    <div>
-      {/* Top Banner & Quick Action */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '2rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            Platform Overview
-          </h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            Real-time multi-tenant operations, business onboarding, and audit events.
-          </p>
+    <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+      {/* SaaS Page Header */}
+      <div className="saas-header">
+        <div className="saas-title-group">
+          <div className="saas-icon-badge" style={{ background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <Activity size={22} />
+          </div>
+          <div>
+            <h1 className="saas-title">Platform Operations Telemetry</h1>
+            <p className="saas-subtitle">
+              Real-time multi-tenant operations, business onboarding, and audit events across the platform.
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={() => navigate('/shops?create=true')}
-          className="btn btn-primary"
-        >
-          <PlusCircle size={18} /> Onboard New Shop
-        </button>
+        <div className="saas-actions">
+          <button
+            onClick={() => navigate('/shops?create=true')}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <PlusCircle size={18} /> Onboard New Shop
+          </button>
+        </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.25rem',
-          marginBottom: '2rem',
-        }}
-      >
+      {/* Modern SaaS KPI Stats Grid */}
+      <div className="saas-stat-grid" style={{ marginBottom: '2rem' }}>
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
-            <div key={idx} className="glass-card" style={{ padding: '1.5rem', position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  {kpi.title}
-                </span>
+            <div key={idx} className="saas-stat-card">
+              <div className="saas-stat-top">
+                <span className="saas-stat-label">{kpi.title}</span>
                 <div
+                  className="saas-stat-icon-wrap"
                   style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
                     background: `${kpi.color}18`,
-                    border: `1px solid ${kpi.color}35`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     color: kpi.color,
                   }}
                 >
-                  <Icon size={20} />
+                  <Icon size={18} />
                 </div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, marginBottom: '0.35rem' }}>
+              <div className="saas-stat-value" style={{ color: kpi.color }}>
                 {kpi.value}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <div className="saas-stat-footer">
                 {kpi.subtitle}
               </div>
             </div>

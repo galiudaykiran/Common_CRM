@@ -33,12 +33,14 @@ import {
   StockAdjustmentRequest,
   StockReceiveRequest,
   InventoryTransaction,
+  InventorySummary,
 } from '../../../types';
 
 export const ProductListPage: React.FC = () => {
   // Data States
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -134,13 +136,16 @@ export const ProductListPage: React.FC = () => {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await inventoryApi.searchProducts({
-        search: searchTerm || undefined,
-        categoryId: selectedCategory,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
-        page,
-        size: pageSize,
-      });
+      const [data, sum] = await Promise.all([
+        inventoryApi.searchProducts({
+          search: searchTerm || undefined,
+          categoryId: selectedCategory,
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          page,
+          size: pageSize,
+        }),
+        inventoryApi.getSummary().catch(() => null),
+      ]);
 
       let items = data.content;
       if (stockLevelFilter === 'LOW') {
@@ -154,6 +159,7 @@ export const ProductListPage: React.FC = () => {
       setProducts(items);
       setTotalElements(data.totalElements);
       setTotalPages(data.totalPages);
+      if (sum) setSummary(sum);
     } catch (err: any) {
       console.error('Failed to load products', err);
     } finally {
@@ -498,65 +504,28 @@ export const ProductListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Banner */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
-              }}
-            >
-              <Package size={22} />
-            </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              Products Catalog & Inventory
-            </h1>
+      {/* SaaS Page Header */}
+      <div className="saas-header">
+        <div className="saas-title-group">
+          <div className="saas-icon-badge" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+            <Package size={22} />
           </div>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>
-            Multi-tier inventory tracking, double-entry stock ledger, and barcode-ready product catalog.
-          </p>
+          <div>
+            <h1 className="saas-title">Product Catalog & Inventory</h1>
+            <p className="saas-subtitle">
+              Multi-tier inventory tracking, double-entry stock ledger, and barcode-ready product catalog.
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="saas-actions">
           <button
             onClick={() => setShowCategoryModal(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 18px',
-              borderRadius: '9px',
-              border: '1px solid var(--border-subtle)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
-            <Layers size={16} />
-            Add Category
+            <Layers size={16} /> Add Category
           </button>
-
           <button
             onClick={() => {
               setEditingProduct(null);
@@ -582,67 +551,122 @@ export const ProductListPage: React.FC = () => {
               setActionError(null);
               setShowAddModal(true);
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '9px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
-              transition: 'all 0.2s',
-            }}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
-            <Plus size={18} />
-            Register Product
+            <Plus size={18} /> Register Product
           </button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '14px',
-          padding: '18px 22px',
-          marginBottom: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
-          {/* Search */}
-          <div style={{ flex: '1 1 280px', position: 'relative' }}>
-            <Search
-              size={18}
-              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
-            />
+      {/* Mini Metric KPI Summary Bar */}
+      <div className="saas-stat-grid" style={{ marginBottom: '24px' }}>
+        <div
+          className="saas-stat-card"
+          onClick={() => {
+            setStockLevelFilter('ALL');
+            setPage(0);
+          }}
+          style={{ cursor: 'pointer', border: stockLevelFilter === 'ALL' ? '1px solid #3b82f6' : undefined }}
+        >
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Total Catalog Items</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+              <Package size={18} />
+            </div>
+          </div>
+          <div className="saas-stat-value">{totalElements}</div>
+          <div className="saas-stat-footer">Across all store categories</div>
+        </div>
+
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Physical Stock on Hand</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+              <Boxes size={18} />
+            </div>
+          </div>
+          <div className="saas-stat-value" style={{ color: '#10b981' }}>
+            {summary?.totalStockUnits != null ? Number(summary.totalStockUnits).toLocaleString() : '—'}
+          </div>
+          <div className="saas-stat-footer">Available sellable units</div>
+        </div>
+
+        <div
+          className="saas-stat-card"
+          onClick={() => {
+            setStockLevelFilter('LOW');
+            setPage(0);
+          }}
+          style={{ cursor: 'pointer', border: stockLevelFilter === 'LOW' ? '1px solid #f59e0b' : undefined }}
+        >
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Low Stock Alerts</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+          <div className="saas-stat-value" style={{ color: '#f59e0b' }}>
+            {summary?.lowStockCount ?? 0}
+          </div>
+          <div className="saas-stat-footer">
+            {stockLevelFilter === 'LOW' ? '● Filtering active' : 'Click to filter low stock items'}
+          </div>
+        </div>
+
+        <div
+          className="saas-stat-card"
+          onClick={() => {
+            setStockLevelFilter('OUT');
+            setPage(0);
+          }}
+          style={{ cursor: 'pointer', border: stockLevelFilter === 'OUT' ? '1px solid #ef4444' : undefined }}
+        >
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Out of Stock</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+          <div className="saas-stat-value" style={{ color: '#ef4444' }}>
+            {summary?.outOfStockCount ?? 0}
+          </div>
+          <div className="saas-stat-footer">
+            {stockLevelFilter === 'OUT' ? '● Filtering active' : 'Click to filter depleted items'}
+          </div>
+        </div>
+      </div>
+
+      {/* Modern SaaS Filter and Search Toolbar */}
+      <div className="saas-toolbar" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+          {/* Search Box with Clear & Camera Scan */}
+          <div className="saas-search-input-wrap" style={{ flex: '1 1 300px' }}>
+            <Search className="saas-search-icon" size={17} />
             <input
               type="text"
-              placeholder="Search by Product Name, SKU, or scan Barcode..."
+              placeholder="Search by Product Name, SKU, or Barcode..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setPage(0);
               }}
-              style={{
-                width: '100%',
-                padding: '10px 42px 10px 38px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                outline: 'none',
-              }}
+              className="saas-search-input"
+              style={{ paddingRight: '72px' }}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setPage(0);
+                }}
+                className="saas-search-clear"
+                title="Clear Search"
+              >
+                <X size={14} />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -654,19 +678,20 @@ export const ProductListPage: React.FC = () => {
                 right: '8px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                color: 'var(--accent-primary)',
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                color: '#3b82f6',
                 cursor: 'pointer',
-                padding: '4px',
+                padding: '4px 6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '6px',
+                transition: 'all 0.15s',
               }}
               title="Scan barcode with camera sensor"
             >
-              <Camera size={18} />
+              <Camera size={15} />
             </button>
           </div>
 
@@ -680,12 +705,12 @@ export const ProductListPage: React.FC = () => {
               }}
               style={{
                 width: '100%',
-                padding: '10px 14px',
+                padding: '9px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-subtle)',
                 background: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
               }}
             >
@@ -699,7 +724,7 @@ export const ProductListPage: React.FC = () => {
           </div>
 
           {/* Status Dropdown */}
-          <div style={{ minWidth: '140px' }}>
+          <div style={{ minWidth: '130px' }}>
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -708,12 +733,12 @@ export const ProductListPage: React.FC = () => {
               }}
               style={{
                 width: '100%',
-                padding: '10px 14px',
+                padding: '9px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-subtle)',
                 background: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
               }}
             >
@@ -734,60 +759,41 @@ export const ProductListPage: React.FC = () => {
               fetchProducts();
             }}
             title="Reset Filters"
-            style={{
-              padding: '10px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-subtle)',
-              background: 'var(--bg-primary)',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '13px',
-            }}
+            className="btn btn-outline"
+            style={{ padding: '9px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <RefreshCw size={15} />
-            Reset
+            <RefreshCw size={14} /> Reset
           </button>
         </div>
 
         {/* Stock Level Quick Pills */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500, marginRight: '4px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '4px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Stock Filters:
           </span>
-          {[
-            { key: 'ALL', label: 'All Items' },
-            { key: 'IN', label: 'In Stock' },
-            { key: 'LOW', label: 'Low Stock Alerts', badgeColor: '#f59e0b' },
-            { key: 'OUT', label: 'Out of Stock', badgeColor: '#ef4444' },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => {
-                setStockLevelFilter(item.key as any);
-                setPage(0);
-              }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: stockLevelFilter === item.key ? '1px solid #3b82f6' : '1px solid var(--border-subtle)',
-                background: stockLevelFilter === item.key ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-primary)',
-                color: stockLevelFilter === item.key ? '#3b82f6' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          <div className="saas-pill-group">
+            {[
+              { key: 'ALL', label: 'All Items' },
+              { key: 'IN', label: 'In Stock' },
+              { key: 'LOW', label: 'Low Stock Alerts', badgeColor: '#f59e0b' },
+              { key: 'OUT', label: 'Out of Stock', badgeColor: '#ef4444' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setStockLevelFilter(item.key as any);
+                  setPage(0);
+                }}
+                className={`saas-pill ${stockLevelFilter === item.key ? 'active' : ''}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Modern Products Table */}
       <div
         style={{
           background: 'var(--bg-secondary)',
@@ -801,25 +807,25 @@ export const ProductListPage: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Product Details
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   SKU & Barcode
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Category
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Cost / Sell Price
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Current Stock
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Status
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                <th style={{ padding: '13px 18px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                   Actions
                 </th>
               </tr>
@@ -827,18 +833,27 @@ export const ProductListPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Loading product catalog...
+                  <td colSpan={7} style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                      <RefreshCw size={18} className="animate-spin" />
+                      Loading product catalog...
+                    </div>
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <Package size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                      No products found
+                  <td colSpan={7} style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <div className="saas-empty-state" style={{ padding: 0 }}>
+                      <div className="saas-empty-icon">
+                        <Package size={26} />
+                      </div>
+                      <div className="saas-empty-title">No products match your criteria</div>
+                      <div className="saas-empty-desc">
+                        {searchTerm || stockLevelFilter !== 'ALL' || selectedCategory
+                          ? 'Try adjusting your search terms or filters.'
+                          : 'Get started by registering your first catalog item.'}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '13px' }}>Click "Register Product" above to add your first item.</div>
                   </td>
                 </tr>
               ) : (
@@ -850,23 +865,27 @@ export const ProductListPage: React.FC = () => {
                         borderBottom: '1px solid var(--border-subtle)',
                         transition: 'background 0.15s',
                       }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       {/* Name & Unit */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{p.name}</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '8px', marginTop: '2px' }}>
-                          <span>Unit: {p.unitOfMeasure}</span>
-                          {p.hsnSacCode && <span>• HSN: {p.hsnSacCode}</span>}
+                          <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
+                            {p.unitOfMeasure}
+                          </span>
+                          {p.hsnSacCode && <span>HSN: {p.hsnSacCode}</span>}
                         </div>
                       </td>
 
                       {/* SKU & Barcode */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         <div style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px' }}>
                           {p.sku}
                         </div>
                         {p.barcode ? (
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                             <Barcode size={13} /> {p.barcode}
                           </div>
                         ) : (
@@ -875,7 +894,7 @@ export const ProductListPage: React.FC = () => {
                       </td>
 
                       {/* Category */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         {p.categoryName ? (
                           <span
                             style={{
@@ -896,7 +915,7 @@ export const ProductListPage: React.FC = () => {
                       </td>
 
                       {/* Pricing */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>
                           ₹{Number(p.sellingPrice).toFixed(2)}
                         </div>
@@ -906,7 +925,7 @@ export const ProductListPage: React.FC = () => {
                       </td>
 
                       {/* Stock Badge */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span
                             style={{
@@ -915,10 +934,10 @@ export const ProductListPage: React.FC = () => {
                               fontSize: '13px',
                               fontWeight: 700,
                               background: p.isOutOfStock
-                                ? 'rgba(239, 68, 68, 0.15)'
+                                ? 'rgba(239, 68, 68, 0.12)'
                                 : p.isLowStock
-                                ? 'rgba(245, 158, 11, 0.15)'
-                                : 'rgba(16, 185, 129, 0.15)',
+                                ? 'rgba(245, 158, 11, 0.12)'
+                                : 'rgba(16, 185, 129, 0.12)',
                               color: p.isOutOfStock ? '#ef4444' : p.isLowStock ? '#f59e0b' : '#10b981',
                               border: p.isOutOfStock
                                 ? '1px solid rgba(239, 68, 68, 0.3)'
@@ -944,13 +963,14 @@ export const ProductListPage: React.FC = () => {
                       </td>
 
                       {/* Status */}
-                      <td style={{ padding: '16px 18px' }}>
+                      <td style={{ padding: '14px 18px' }}>
                         <span
                           style={{
                             padding: '3px 8px',
                             borderRadius: '4px',
                             fontSize: '11px',
                             fontWeight: 600,
+                            letterSpacing: '0.02em',
                             background: p.status === 'ACTIVE' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(107, 114, 128, 0.12)',
                             color: p.status === 'ACTIVE' ? '#3b82f6' : '#9ca3af',
                           }}
@@ -960,21 +980,18 @@ export const ProductListPage: React.FC = () => {
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '16px 18px', textAlign: 'right' }}>
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button
                             onClick={() => handleOpenReceive(p)}
                             title="Inward Goods Receipt"
+                            className="btn btn-outline"
                             style={{
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              background: 'var(--bg-primary)',
-                              color: '#10b981',
+                              padding: '5px 10px',
                               fontSize: '12px',
                               fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
+                              color: '#10b981',
+                              display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                             }}
@@ -985,16 +1002,13 @@ export const ProductListPage: React.FC = () => {
                           <button
                             onClick={() => handleOpenAdjustment(p)}
                             title="Adjust / Audit Stock"
+                            className="btn btn-outline"
                             style={{
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              background: 'var(--bg-primary)',
-                              color: '#f59e0b',
+                              padding: '5px 10px',
                               fontSize: '12px',
                               fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
+                              color: '#f59e0b',
+                              display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                             }}
@@ -1005,36 +1019,18 @@ export const ProductListPage: React.FC = () => {
                           <button
                             onClick={() => handleOpenLedger(p)}
                             title="Stock Movement Ledger"
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              background: 'var(--bg-primary)',
-                              color: '#3b82f6',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
+                            className="btn btn-icon"
+                            style={{ color: '#3b82f6' }}
                           >
-                            <History size={13} />
+                            <History size={14} />
                           </button>
 
                           <button
                             onClick={() => handleEdit(p)}
                             title="Edit Product"
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              background: 'var(--bg-primary)',
-                              color: 'var(--text-primary)',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
+                            className="btn btn-icon"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={14} />
                           </button>
                         </div>
                       </td>
@@ -1049,52 +1045,52 @@ export const ProductListPage: React.FC = () => {
         {/* Pagination Footer */}
         <div
           style={{
-            padding: '14px 20px',
+            padding: '12px 20px',
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             fontSize: '13px',
             color: 'var(--text-muted)',
+            flexWrap: 'wrap',
+            gap: '8px',
           }}
         >
           <div>
-            Showing {products.length} of {totalElements} products
+            Showing <strong>{products.length}</strong> of <strong>{totalElements}</strong> products
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               disabled={page === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="btn btn-outline"
               style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)',
-                color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
-                cursor: page === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex',
+                padding: '5px 12px',
+                fontSize: '12px',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
+                cursor: page === 0 ? 'not-allowed' : 'pointer',
+                opacity: page === 0 ? 0.5 : 1,
               }}
             >
               <ChevronLeft size={14} /> Previous
             </button>
-            <span>
+            <span style={{ fontSize: '13px', fontWeight: 500 }}>
               Page {page + 1} of {totalPages || 1}
             </span>
             <button
               disabled={page + 1 >= totalPages}
               onClick={() => setPage((p) => p + 1)}
+              className="btn btn-outline"
               style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)',
-                color: page + 1 >= totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
-                cursor: page + 1 >= totalPages ? 'not-allowed' : 'pointer',
-                display: 'flex',
+                padding: '5px 12px',
+                fontSize: '12px',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
+                cursor: page + 1 >= totalPages ? 'not-allowed' : 'pointer',
+                opacity: page + 1 >= totalPages ? 0.5 : 1,
               }}
             >
               Next <ChevronRight size={14} />

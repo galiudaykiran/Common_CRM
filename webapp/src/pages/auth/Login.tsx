@@ -1,20 +1,55 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { apiClient } from '../../api/client';
 import { ApiResponse, AuthResponse } from '../../types';
-import { Lock, User, ArrowRight, ShieldCheck, AlertCircle, Store, BadgeCheck, Users } from 'lucide-react';
+import {
+  Lock,
+  User,
+  ArrowRight,
+  ShieldCheck,
+  AlertCircle,
+  Store,
+  Users,
+  Eye,
+  EyeOff,
+  Sun,
+  Moon,
+  Sparkles,
+  CheckCircle2,
+} from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const [loginMode, setLoginMode] = useState<'EMPLOYEE' | 'ADMIN'>('EMPLOYEE');
+  const [activeRole, setActiveRole] = useState<'STAFF' | 'OWNER' | 'ADMIN'>('STAFF');
   const [shopCode, setShopCode] = useState('NAG_11');
   const [username, setUsername] = useState('uday');
   const [password, setPassword] = useState('Staff@12345');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const handleRoleSelect = (role: 'STAFF' | 'OWNER' | 'ADMIN') => {
+    setActiveRole(role);
+    setErrorMessage(null);
+    if (role === 'STAFF') {
+      setShopCode('NAG_11');
+      setUsername('uday');
+      setPassword('Staff@12345');
+    } else if (role === 'OWNER') {
+      setShopCode('');
+      setUsername('nagaraju');
+      setPassword('Password@123');
+    } else {
+      setShopCode('');
+      setUsername('admin');
+      setPassword('Admin@12345');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +62,7 @@ export const Login: React.FC = () => {
         password,
       };
 
-      if (loginMode === 'EMPLOYEE') {
+      if (activeRole === 'STAFF') {
         if (!shopCode.trim()) {
           setErrorMessage('Please enter your Store ID / Shop Code (e.g. NAG_11)');
           setLoading(false);
@@ -73,30 +108,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const fillStaffCredentials = () => {
-    setLoginMode('EMPLOYEE');
-    setShopCode('NAG_11');
-    setUsername('uday');
-    setPassword('Staff@12345');
-    setErrorMessage(null);
-  };
-
-  const fillShopOwnerCredentials = () => {
-    setLoginMode('ADMIN');
-    setUsername('nagaraju');
-    setPassword('Password@123');
-    setShopCode('');
-    setErrorMessage(null);
-  };
-
-  const fillAdminCredentials = () => {
-    setLoginMode('ADMIN');
-    setUsername('admin');
-    setPassword('Admin@12345');
-    setShopCode('');
-    setErrorMessage(null);
-  };
-
   return (
     <div
       style={{
@@ -104,11 +115,34 @@ export const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--bg-main)',
+        background: 'var(--bg-primary)',
         padding: '1.5rem',
         position: 'relative',
       }}
     >
+      {/* Top Right Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="btn-icon"
+        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          width: '40px',
+          height: '40px',
+          borderRadius: '10px',
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          zIndex: 10,
+        }}
+      >
+        {theme === 'dark' ? <Sun size={18} color="#f59e0b" /> : <Moon size={18} color="#6366f1" />}
+      </button>
+
+      {/* Main SaaS Auth Card */}
       <div
         className="glass-card"
         style={{
@@ -116,124 +150,138 @@ export const Login: React.FC = () => {
           maxWidth: '460px',
           padding: '2.5rem',
           position: 'relative',
-          overflow: 'hidden',
-          borderRadius: '18px',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
+          borderRadius: '16px',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg-secondary)',
         }}
       >
-        {/* Glow Accent */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-50px',
-            right: '-50px',
-            width: '150px',
-            height: '150px',
-            background: 'var(--accent-gradient)',
-            filter: 'blur(50px)',
-            opacity: 0.18,
-            borderRadius: '50%',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Header */}
+        {/* Header Branding */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div
             style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
+              width: '52px',
+              height: '52px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 20px rgba(79, 70, 229, 0.35)',
+              boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
               marginBottom: '1rem',
               color: '#fff',
             }}
           >
-            {loginMode === 'EMPLOYEE' ? <Store size={28} /> : <ShieldCheck size={28} />}
+            {activeRole === 'STAFF' ? (
+              <Store size={26} />
+            ) : activeRole === 'OWNER' ? (
+              <Store size={26} />
+            ) : (
+              <ShieldCheck size={26} />
+            )}
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
-            {loginMode === 'EMPLOYEE' ? 'Store Staff Portal' : 'Business Portal Access'}
+
+          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
+            {activeRole === 'STAFF'
+              ? 'Store Staff Portal'
+              : activeRole === 'OWNER'
+              ? 'Shop Owner Access'
+              : 'Platform Admin Console'}
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            Multi-Tenant Retail & Enterprise Operating System
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+            Multi-Tenant Retail & Business Operating System
           </p>
         </div>
 
-        {/* Tab Switcher: Store Staff vs Owner/Admin */}
+        {/* 3-Way Role Selector Tabs */}
         <div
           style={{
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             background: 'var(--bg-primary)',
             borderRadius: '10px',
             padding: '4px',
             marginBottom: '1.5rem',
             border: '1px solid var(--border-subtle)',
+            gap: '4px',
           }}
         >
           <button
             type="button"
-            onClick={() => {
-              setLoginMode('EMPLOYEE');
-              setErrorMessage(null);
-            }}
+            onClick={() => handleRoleSelect('STAFF')}
             style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
+              padding: '8px 6px',
+              borderRadius: '7px',
               border: 'none',
-              background: loginMode === 'EMPLOYEE' ? 'var(--accent-primary)' : 'transparent',
-              color: loginMode === 'EMPLOYEE' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '13px',
+              background: activeRole === 'STAFF' ? 'var(--accent-primary)' : 'transparent',
+              color: activeRole === 'STAFF' ? '#fff' : 'var(--text-secondary)',
+              fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.2s',
+              gap: '5px',
+              transition: 'all 0.15s ease',
             }}
           >
-            <Store size={15} /> Store Staff
+            <Users size={14} /> Staff
           </button>
+
           <button
             type="button"
-            onClick={() => {
-              setLoginMode('ADMIN');
-              setErrorMessage(null);
-            }}
+            onClick={() => handleRoleSelect('OWNER')}
             style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
+              padding: '8px 6px',
+              borderRadius: '7px',
               border: 'none',
-              background: loginMode === 'ADMIN' ? 'var(--accent-primary)' : 'transparent',
-              color: loginMode === 'ADMIN' ? '#fff' : 'var(--text-secondary)',
-              fontSize: '13px',
+              background: activeRole === 'OWNER' ? 'var(--accent-primary)' : 'transparent',
+              color: activeRole === 'OWNER' ? '#fff' : 'var(--text-secondary)',
+              fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.2s',
+              gap: '5px',
+              transition: 'all 0.15s ease',
             }}
           >
-            <ShieldCheck size={15} /> Owner / Admin
+            <Store size={14} /> Owner
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleRoleSelect('ADMIN')}
+            style={{
+              padding: '8px 6px',
+              borderRadius: '7px',
+              border: 'none',
+              background: activeRole === 'ADMIN' ? 'var(--accent-primary)' : 'transparent',
+              color: activeRole === 'ADMIN' ? '#fff' : 'var(--text-secondary)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <ShieldCheck size={14} /> Admin
           </button>
         </div>
 
+        {/* Error Alert */}
         {errorMessage && (
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.6rem',
               padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: '8px',
               background: 'var(--danger-bg)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
               color: 'var(--danger)',
@@ -246,13 +294,14 @@ export const Login: React.FC = () => {
           </div>
         )}
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit}>
           {/* Shop Code Input (Only for Staff / Employee Login) */}
-          {loginMode === 'EMPLOYEE' && (
-            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+          {activeRole === 'STAFF' && (
+            <div className="form-group" style={{ marginBottom: '1.1rem' }}>
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Store ID / Shop Code *</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>e.g. NAG_11</span>
+                <span className="shop-code-badge" style={{ fontSize: '10px', padding: '1px 6px' }}>NAG_11</span>
               </label>
               <div style={{ position: 'relative' }}>
                 <Store
@@ -274,7 +323,7 @@ export const Login: React.FC = () => {
                     fontWeight: 700,
                     letterSpacing: '0.05em',
                   }}
-                  placeholder="Enter Store Code (e.g., NAG_11)"
+                  placeholder="Enter Store Code (e.g. NAG_11)"
                   value={shopCode}
                   onChange={(e) => setShopCode(e.target.value.toUpperCase())}
                   required
@@ -284,9 +333,9 @@ export const Login: React.FC = () => {
           )}
 
           {/* Username Input */}
-          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+          <div className="form-group" style={{ marginBottom: '1.1rem' }}>
             <label className="form-label">
-              {loginMode === 'EMPLOYEE' ? 'Employee Username or Staff ID *' : 'Account Username *'}
+              {activeRole === 'STAFF' ? 'Employee Username or Staff ID *' : 'Account Username *'}
             </label>
             <div style={{ position: 'relative' }}>
               <User
@@ -303,7 +352,13 @@ export const Login: React.FC = () => {
                 type="text"
                 className="form-control"
                 style={{ paddingLeft: '2.5rem' }}
-                placeholder={loginMode === 'EMPLOYEE' ? 'e.g. uday or EMP-001' : 'Enter username or email'}
+                placeholder={
+                  activeRole === 'STAFF'
+                    ? 'e.g. uday or kavitha_cashier'
+                    : activeRole === 'OWNER'
+                    ? 'e.g. nagaraju'
+                    : 'e.g. admin'
+                }
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -311,8 +366,8 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Password Input */}
-          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+          {/* Password Input with Show/Hide Toggle */}
+          <div className="form-group" style={{ marginBottom: '1.4rem' }}>
             <label className="form-label">Password *</label>
             <div style={{ position: 'relative' }}>
               <Lock
@@ -326,41 +381,59 @@ export const Login: React.FC = () => {
                 }}
               />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="form-control"
-                style={{ paddingLeft: '2.5rem' }}
+                style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ width: '100%', padding: '0.85rem', fontSize: '0.95rem', fontWeight: 600 }}
+            style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem', fontWeight: 600 }}
             disabled={loading}
           >
             {loading ? (
               'Authenticating credentials...'
             ) : (
               <>
-                {loginMode === 'EMPLOYEE' ? 'Access Store Counter' : 'Sign In to Platform'} <ArrowRight size={16} />
+                {activeRole === 'STAFF' ? 'Access Store Counter' : 'Sign In to Workspace'} <ArrowRight size={16} />
               </>
             )}
           </button>
 
-          {/* 1-Click Fast Credentials Helper */}
-          <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+          {/* Quick Credential Pre-fill Helpers */}
+          <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
-              Quick Demo Access:
+              Instant Quick-Fill Access:
             </p>
             <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                onClick={fillStaffCredentials}
+                onClick={() => handleRoleSelect('STAFF')}
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
@@ -368,7 +441,7 @@ export const Login: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={fillShopOwnerCredentials}
+                onClick={() => handleRoleSelect('OWNER')}
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
@@ -376,7 +449,7 @@ export const Login: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={fillAdminCredentials}
+                onClick={() => handleRoleSelect('ADMIN')}
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
               >

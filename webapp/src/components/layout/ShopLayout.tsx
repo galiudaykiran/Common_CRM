@@ -19,10 +19,16 @@ import {
   ShieldCheck,
   Building2,
   Sparkles,
+  Sun,
+  Moon,
+  ScanBarcode,
+  HelpCircle,
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 export const ShopLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [storeInfo, setStoreInfo] = useState<ShopBasicInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -347,7 +353,7 @@ export const ShopLayout: React.FC = () => {
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               <Building2 size={15} style={{ color: 'var(--accent-primary)' }} />
               <span>Tenant: <strong>{storeInfo?.tenantName || 'Authorized Tenant'}</strong></span>
@@ -358,6 +364,24 @@ export const ShopLayout: React.FC = () => {
             >
               {storeInfo?.status || 'ACTIVE'}
             </span>
+
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="btn-icon"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {theme === 'dark' ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="#6366f1" />}
+            </button>
           </div>
         </header>
 

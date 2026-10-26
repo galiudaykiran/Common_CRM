@@ -249,45 +249,50 @@ export const EmployeeListPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-            Staff & Employee Management
-          </h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', margin: 0 }}>
-            Maintain staff contact profiles, residential addresses, monthly salaries, and role delegation
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+      {/* SaaS Page Header */}
+      <div className="saas-header">
+        <div className="saas-title-group">
+          <div className="saas-icon-badge" style={{ background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <Users size={22} />
+          </div>
+          <div>
+            <h1 className="saas-title">Staff & Employee Management</h1>
+            <p className="saas-subtitle">
+              Maintain staff contact profiles, residential addresses, monthly compensation, and POS permissions.
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem' }}
-        >
-          <UserPlus size={16} />
-          <span>Onboard New Staff</span>
-        </button>
+        <div className="saas-actions">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <UserPlus size={16} />
+            <span>Onboard New Staff</span>
+          </button>
+        </div>
       </div>
 
       {/* Toast Alert */}
       {toastMessage && (
         <div
           style={{
-            padding: '1rem 1.25rem',
-            borderRadius: 'var(--radius-md)',
-            background: toastMessage.type === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            background: toastMessage.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
             border: `1px solid ${toastMessage.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: toastMessage.type === 'success' ? 'var(--success)' : 'var(--danger)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
+            color: toastMessage.type === 'success' ? '#10b981' : '#ef4444',
+            fontSize: '14px',
+            fontWeight: 500,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {toastMessage.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
             <span>{toastMessage.text}</span>
           </div>
@@ -300,58 +305,58 @@ export const EmployeeListPage: React.FC = () => {
         </div>
       )}
 
-      {/* KPI Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-        <div className="glass-card stat-card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Headcount</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
-              <Users size={17} />
+      {/* Modern SaaS KPI Stats Grid */}
+      <div className="saas-stat-grid">
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Total Headcount</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)' }}>
+              <Users size={18} />
             </div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="saas-stat-value">
             {stats?.totalEmployees ?? 0}
           </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>Enrolled team members</p>
+          <div className="saas-stat-footer">Enrolled team members</div>
         </div>
 
-        <div className="glass-card stat-card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Active On Duty</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-              <UserCheck size={17} />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Active On Duty</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+              <UserCheck size={18} />
             </div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#10b981' }}>
+          <div className="saas-stat-value" style={{ color: '#10b981' }}>
             {stats?.activeEmployees ?? 0}
           </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>Operating on store floors</p>
+          <div className="saas-stat-footer">Operating on store floors</div>
         </div>
 
-        <div className="glass-card stat-card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>On Leave</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-              <Calendar size={17} />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">On Leave</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+              <Calendar size={18} />
             </div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#3b82f6' }}>
+          <div className="saas-stat-value" style={{ color: '#3b82f6' }}>
             {stats?.onLeaveEmployees ?? 0}
           </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>Approved absence</p>
+          <div className="saas-stat-footer">Approved scheduled absence</div>
         </div>
 
-        <div className="glass-card stat-card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Monthly Payroll</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
-              <DollarSign size={17} />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Monthly Payroll</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+              <DollarSign size={18} />
             </div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="saas-stat-value" style={{ color: '#f59e0b' }}>
             ₹{(stats?.monthlyPayroll ?? 0).toLocaleString()}
           </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>Total active compensation</p>
+          <div className="saas-stat-footer">Total active staff compensation</div>
         </div>
       </div>
 

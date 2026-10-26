@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Boxes,
   TrendingUp,
@@ -7,11 +8,12 @@ import {
   DollarSign,
   PackageCheck,
   History,
-  ArrowUpDown,
   RefreshCw,
   Plus,
   ArrowUpRight,
   ArrowDownLeft,
+  ChevronRight,
+  Search,
 } from 'lucide-react';
 import { inventoryApi } from '../../../api/inventoryApi';
 import {
@@ -21,10 +23,12 @@ import {
 } from '../../../types';
 
 export const InventoryStockPage: React.FC = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [ledger, setLedger] = useState<InventoryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ledgerSearch, setLedgerSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -60,174 +64,133 @@ export const InventoryStockPage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const filteredLedger = ledger.filter((tx) => {
+    if (!ledgerSearch) return true;
+    const q = ledgerSearch.toLowerCase();
+    return (
+      tx.productName?.toLowerCase().includes(q) ||
+      tx.sku?.toLowerCase().includes(q) ||
+      tx.referenceId?.toLowerCase().includes(q) ||
+      tx.transactionType?.toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div style={{ padding: '28px', maxWidth: '1440px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-              }}
-            >
-              <Boxes size={22} />
-            </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              Inventory Valuation & Stock Operations
-            </h1>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '4px' }}>
+      {/* SaaS Page Header */}
+      <div className="saas-header">
+        <div className="saas-title-group">
+          <div className="saas-icon-badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <Boxes size={22} />
           </div>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>
-            Real-time stock valuation metrics, critical reorder alerts, and store-wide audit ledger.
-          </p>
+          <div>
+            <h1 className="saas-title">Inventory Valuation & Stock Operations</h1>
+            <p className="saas-subtitle">
+              Real-time stock valuation, automated reorder thresholds, and store-wide audit ledger.
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={fetchData}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 18px',
-            borderRadius: '9px',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            fontSize: '14px',
-            cursor: 'pointer',
-          }}
-        >
-          <RefreshCw size={15} /> Refresh Data
-        </button>
+        <div className="saas-actions">
+          <button
+            onClick={() => navigate('/shop/products')}
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} /> Manage Catalog
+          </button>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Refreshing...' : 'Refresh Telemetry'}
+          </button>
+        </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '18px',
-          marginBottom: '28px',
-        }}
-      >
+      {/* Modern SaaS KPI Cards Grid */}
+      <div className="saas-stat-grid" style={{ marginBottom: '28px' }}>
         {/* Total Stock Units */}
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>TOTAL STOCK UNITS</span>
-            <PackageCheck size={18} color="#3b82f6" />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Total Stock Units</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+              <PackageCheck size={18} />
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div className="saas-stat-value">
             {summary?.totalStockUnits != null ? Number(summary.totalStockUnits).toLocaleString() : '—'}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Across {summary?.activeProducts || 0} active catalog items
+          <div className="saas-stat-footer">
+            Across <strong>{summary?.activeProducts || 0}</strong> active catalog items
           </div>
         </div>
 
-        {/* Total Valuation at Cost */}
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>VALUATION (AT COST)</span>
-            <DollarSign size={18} color="#10b981" />
+        {/* Valuation (At Cost) */}
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Valuation (Cost)</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+              <DollarSign size={18} />
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: '#10b981' }}>
+          <div className="saas-stat-value" style={{ color: '#10b981' }}>
             ₹{summary?.totalCostValuation != null ? Number(summary.totalCostValuation).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '0.00'}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Current capital tied up in stock</div>
+          <div className="saas-stat-footer">
+            Current working capital tied in stock
+          </div>
         </div>
 
-        {/* Total Valuation at Retail */}
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>VALUATION (AT RETAIL)</span>
-            <TrendingUp size={18} color="#8b5cf6" />
+        {/* Valuation (At Retail) */}
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Valuation (Retail)</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}>
+              <TrendingUp size={18} />
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: '#8b5cf6' }}>
+          <div className="saas-stat-value" style={{ color: '#8b5cf6' }}>
             ₹{summary?.totalRetailValuation != null ? Number(summary.totalRetailValuation).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '0.00'}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Estimated gross retail revenue</div>
+          <div className="saas-stat-footer">
+            Estimated gross retail revenue
+          </div>
         </div>
 
         {/* Low Stock Alerts */}
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>LOW STOCK ALERTS</span>
-            <AlertTriangle size={18} color="#f59e0b" />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Low Stock Alerts</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
+              <AlertTriangle size={18} />
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: '#f59e0b' }}>
+          <div className="saas-stat-value" style={{ color: '#f59e0b' }}>
             {summary?.lowStockCount || 0}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Items at or below reorder level</div>
+          <div className="saas-stat-footer">
+            Items at or below safety threshold
+          </div>
         </div>
 
         {/* Out of Stock */}
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '14px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>OUT OF STOCK</span>
-            <XCircle size={18} color="#ef4444" />
+        <div className="saas-stat-card">
+          <div className="saas-stat-top">
+            <span className="saas-stat-label">Out of Stock</span>
+            <div className="saas-stat-icon-wrap" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
+              <XCircle size={18} />
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: '#ef4444' }}>
+          <div className="saas-stat-value" style={{ color: '#ef4444' }}>
             {summary?.outOfStockCount || 0}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Critical: zero available stock</div>
+          <div className="saas-stat-footer">
+            Critical zero available inventory
+          </div>
         </div>
       </div>
 
@@ -235,38 +198,70 @@ export const InventoryStockPage: React.FC = () => {
       {lowStockItems.length > 0 && (
         <div
           style={{
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '14px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '12px',
             padding: '20px 24px',
             marginBottom: '28px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <AlertTriangle size={20} color="#f59e0b" />
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Stock Replenishment Warnings ({lowStockItems.length} items require reordering)
-            </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#f59e0b',
+                }}
+              >
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Stock Replenishment Warnings
+                </h3>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {lowStockItems.length} products require purchase order replenishment
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/shop/products')}
+              className="btn btn-outline"
+              style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              Restock in Catalog <ChevronRight size={14} />
+            </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
             {lowStockItems.map((item) => (
               <div
                 key={item.id}
                 style={{
-                  background: 'var(--bg-secondary)',
+                  background: 'var(--bg-primary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '10px',
                   padding: '14px 16px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  transition: 'border-color 0.15s',
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{item.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', marginBottom: '2px' }}>
+                    {item.name}
+                  </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    SKU: {item.sku} • Reorder at: {item.reorderLevel}
+                    SKU: <span style={{ fontFamily: 'monospace' }}>{item.sku}</span> • Reorder Level: {item.reorderLevel}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -304,40 +299,76 @@ export const InventoryStockPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <History size={18} color="#3b82f6" />
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Store-wide Immutable Stock Audit Ledger
-            </h3>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(59, 130, 246, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#3b82f6',
+              }}
+            >
+              <History size={16} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Store-wide Stock Audit Ledger
+              </h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Immutable double-entry log of all stock adjustments, receipts, and sales
+              </span>
+            </div>
           </div>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Latest 50 recorded stock events</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="saas-search-input-wrap" style={{ minWidth: '220px' }}>
+              <Search className="saas-search-icon" size={15} />
+              <input
+                type="text"
+                placeholder="Search ledger entries..."
+                value={ledgerSearch}
+                onChange={(e) => setLedgerSearch(e.target.value)}
+                className="saas-search-input"
+                style={{ padding: '7px 12px 7px 32px', fontSize: '13px' }}
+              />
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              Showing {filteredLedger.length} events
+            </span>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Timestamp
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Product
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Event Type
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Reference / Document
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Movement Delta
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Stock Balance
                 </th>
-                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Notes / Reason
                 </th>
               </tr>
@@ -349,17 +380,25 @@ export const InventoryStockPage: React.FC = () => {
                     Loading audit transactions...
                   </td>
                 </tr>
-              ) : ledger.length === 0 ? (
+              ) : filteredLedger.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No stock transactions recorded yet.
+                    No stock transactions match your search.
                   </td>
                 </tr>
               ) : (
-                ledger.map((tx) => {
+                filteredLedger.map((tx) => {
                   const isPositive = Number(tx.quantityDelta) > 0;
                   return (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <tr
+                      key={tx.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-subtle)',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
                       <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                         {new Date(tx.createdAt).toLocaleString()}
                       </td>
@@ -374,6 +413,7 @@ export const InventoryStockPage: React.FC = () => {
                             borderRadius: '4px',
                             fontSize: '11px',
                             fontWeight: 700,
+                            letterSpacing: '0.02em',
                             background: isPositive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                             color: isPositive ? '#10b981' : '#ef4444',
                           }}
@@ -388,11 +428,11 @@ export const InventoryStockPage: React.FC = () => {
                         <span
                           style={{
                             fontWeight: 700,
-                            fontSize: '14px',
+                            fontSize: '13px',
                             color: isPositive ? '#10b981' : '#ef4444',
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
                           }}
                         >
                           {isPositive ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
@@ -400,7 +440,9 @@ export const InventoryStockPage: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-primary)' }}>
-                        {tx.quantityBefore} → <strong>{tx.quantityAfter}</strong>
+                        <span style={{ color: 'var(--text-muted)' }}>{tx.quantityBefore}</span>
+                        <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>→</span>
+                        <strong>{tx.quantityAfter}</strong>
                       </td>
                       <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '250px' }}>
                         {tx.notes || '—'}

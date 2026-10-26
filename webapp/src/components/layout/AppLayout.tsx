@@ -10,10 +10,14 @@ import {
   LogOut,
   User,
   ExternalLink,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -206,6 +210,25 @@ export const AppLayout: React.FC = () => {
             <span style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
               Multi-Tenant Business Management
             </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button
+              onClick={toggleTheme}
+              className="btn-icon"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {theme === 'dark' ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="#6366f1" />}
+            </button>
           </div>
         </header>
 
