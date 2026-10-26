@@ -102,8 +102,7 @@ export const ShopLayout: React.FC = () => {
     {
       title: 'Finance & Insights',
       items: [
-        { to: '/shop/expenses', label: 'Store Expenses', icon: Receipt, module: 'EXPENSES', ownerOnly: true },
-        { to: '/shop/reports', label: 'Business Reports', icon: BarChart3, module: 'REPORTS', ownerOnly: true },
+        { to: '/shop/reports', label: 'Business Reports', icon: BarChart3, always: true, ownerOnly: true },
       ],
     },
   ];

@@ -681,4 +681,102 @@ export interface NotificationDeliveryLog {
   errorMessage?: string;
 }
 
+// ----------------- Reports & Expenses Types -----------------
+export interface FinancialSummary {
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+  totalInvoicesCount: number;
+  grossRevenue: number;
+  totalDiscounts: number;
+  netRevenue: number;
+  costOfGoodsSold: number;
+  grossProfit: number;
+  grossMarginPercent: number;
+  operatingExpenses: number;
+  inventoryShrinkageLoss: number;
+  totalOutflows: number;
+  netProfit: number;
+  netMarginPercent: number;
+  isNetProfit: boolean;
+  totalGstCollected: number;
+  averageBillValue: number;
+}
+
+export interface DailyTrendPoint {
+  dateFormatted: string;
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  expenses: number;
+  netProfit: number;
+  billCount: number;
+}
+
+export interface PaymentModeStat {
+  paymentMode: string;
+  totalAmount: number;
+  transactionCount: number;
+  percentage: number;
+}
+
+export interface ProductProfitabilityStat {
+  productId: number;
+  productName: string;
+  sku: string;
+  quantitySold: number;
+  totalRevenue: number;
+  totalCost: number;
+  grossProfit: number;
+  marginPercent: number;
+}
+
+export interface SlowMovingStockStat {
+  productId: number;
+  productName: string;
+  sku: string;
+  currentStock: number;
+  unitCost: number;
+  tiedUpCapital: number;
+  categoryName: string;
+}
+
+export interface TaxGstSummary {
+  totalTaxableTurnover: number;
+  cgstTotal: number;
+  sgstTotal: number;
+  igstTotal: number;
+  totalTaxCollected: number;
+  totalTaxableInvoices: number;
+}
+
+export interface ShopExpense {
+  id: number;
+  category: string;
+  title: string;
+  amount: number;
+  expenseDate: string;
+  paymentMode?: string;
+  receiptReference?: string;
+  notes?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export interface CreateExpenseRequest {
+  category: string;
+  title: string;
+  amount: number;
+  expenseDate: string;
+  paymentMode?: string;
+  receiptReference?: string;
+  notes?: string;
+}
+
+export interface CategoryExpenseBreakdown {
+  category: string;
+  totalAmount: number;
+  percentage: number;
+}
+
 

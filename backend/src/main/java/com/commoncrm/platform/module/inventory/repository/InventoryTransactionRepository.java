@@ -32,4 +32,11 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
            "WHERE tx.shop.id = :shopId " +
            "ORDER BY tx.createdAt DESC, tx.id DESC")
     List<InventoryTransaction> findRecentByShopId(@Param("shopId") Long shopId, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(tx.totalValuation), 0) FROM InventoryTransaction tx " +
+           "WHERE tx.shop.id = :shopId AND tx.transactionType IN ('DAMAGE_LOSS', 'THEFT_SHRINKAGE') " +
+           "AND tx.createdAt BETWEEN :start AND :end")
+    java.math.BigDecimal sumInventoryLossBetween(@Param("shopId") Long shopId,
+                                                @Param("start") java.time.Instant start,
+                                                @Param("end") java.time.Instant end);
 }

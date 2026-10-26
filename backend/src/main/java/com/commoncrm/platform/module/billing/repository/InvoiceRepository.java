@@ -34,8 +34,25 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shop.id = :shopId AND i.createdAt >= :since")
     long countShopInvoicesSince(@Param("shopId") Long shopId, @Param("since") Instant since);
 
-    @Query("SELECT COALESCE(SUM(i.grandTotal), 0) FROM Invoice i WHERE i.shop.id = :shopId AND i.status = 'COMPLETED' AND i.createdAt >= :since")
-    BigDecimal sumRevenueSince(@Param("shopId") Long shopId, @Param("since") Instant since);
+    @Query("SELECT i FROM Invoice i WHERE i.shop.id = :shopId AND i.createdAt BETWEEN :start AND :end ORDER BY i.createdAt DESC")
+    List<Invoice> findByShopIdAndCreatedAtBetween(
+            @Param("shopId") Long shopId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    @Query("SELECT COALESCE(SUM(i.grandTotal), 0) FROM Invoice i WHERE i.shop.id = :shopId AND i.status = 'COMPLETED' AND i.createdAt BETWEEN :start AND :end")
+    BigDecimal sumRevenueBetween(
+            @Param("shopId") Long shopId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    @Query("SELECT i.primaryPaymentMode, COALESCE(SUM(i.grandTotal), 0), COUNT(i) FROM Invoice i " +
+            "WHERE i.shop.id = :shopId AND i.status = 'COMPLETED' AND i.createdAt BETWEEN :start AND :end " +
+            "GROUP BY i.primaryPaymentMode")
+    List<Object[]> sumRevenueByPaymentModeBetween(
+            @Param("shopId") Long shopId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
 
     @Query("SELECT i FROM Invoice i WHERE i.shop.id = :shopId ORDER BY i.createdAt DESC")
     List<Invoice> findRecentInvoices(@Param("shopId") Long shopId, Pageable pageable);

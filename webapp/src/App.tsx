@@ -20,6 +20,7 @@ import { MobileScanBridgePage } from './pages/shop/inventory/MobileScanBridgePag
 import { PosBillingPage } from './pages/shop/billing/PosBillingPage';
 import { InvoiceHistoryPage } from './pages/shop/billing/InvoiceHistoryPage';
 import { CustomerRemindersPage } from './pages/shop/billing/CustomerRemindersPage';
+import { BusinessReportsPage } from './pages/shop/reports/BusinessReportsPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -130,19 +131,12 @@ export function App() {
                 </OwnerOnlyRoute>
               }
             />
-            <Route
-              path="expenses"
-              element={
-                <OwnerOnlyRoute>
-                  <div className="glass-card" style={{ padding: '2rem' }}><h3 style={{ margin: '0 0 0.5rem' }}>Store Expenses</h3><p style={{ color: 'var(--text-secondary)', margin: 0 }}>Operating expenses recording integration.</p></div>
-                </OwnerOnlyRoute>
-              }
-            />
+            <Route path="expenses" element={<Navigate to="/shop/reports" replace />} />
             <Route
               path="reports"
               element={
                 <OwnerOnlyRoute>
-                  <div className="glass-card" style={{ padding: '2rem' }}><h3 style={{ margin: '0 0 0.5rem' }}>Business Reports</h3><p style={{ color: 'var(--text-secondary)', margin: 0 }}>SQL-optimized sales and tax reporting integration.</p></div>
+                  <BusinessReportsPage />
                 </OwnerOnlyRoute>
               }
             />
