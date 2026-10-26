@@ -488,4 +488,197 @@ export interface ShopBasicInfo {
   enabledModuleCodes: string[];
 }
 
+// ----------------- Billing & Customer Types -----------------
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  gstin?: string;
+  totalSpent: number;
+  creditBalance: number;
+  createdAt: string;
+}
+
+export interface CreateCustomerRequest {
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  gstin?: string;
+}
+
+export interface CreateInvoiceItemRequest {
+  productId: number;
+  quantity: number;
+  unitPrice?: number;
+  discountAmount?: number;
+}
+
+export interface CreateInvoicePaymentRequest {
+  paymentMode: string;
+  amount: number;
+  transactionReference?: string;
+  notes?: string;
+}
+
+export interface CreateInvoiceRequest {
+  customerId?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  customerGstin?: string;
+  customerAddress?: string;
+  invoiceDiscountTotal?: number;
+  paymentMode: string;
+  amountPaid: number;
+  payments?: CreateInvoicePaymentRequest[];
+  notes?: string;
+  sendReceiptNotification?: boolean;
+  items: CreateInvoiceItemRequest[];
+}
+
+export interface InvoiceItemResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  sku: string;
+  hsnSacCode?: string;
+  quantity: number;
+  unitOfMeasure?: string;
+  unitPrice: number;
+  discountAmount: number;
+  taxableAmount: number;
+  taxRate: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalTax: number;
+  lineTotal: number;
+}
+
+export interface InvoicePaymentResponse {
+  id: number;
+  paymentMode: string;
+  amount: number;
+  transactionReference?: string;
+  paymentStatus: string;
+  paidAt: string;
+}
+
+export interface InvoiceResponse {
+  id: number;
+  invoiceNumber: string;
+  customerId?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  cashierId: number;
+  cashierName: string;
+  subtotal: number;
+  itemDiscountTotal: number;
+  invoiceDiscountTotal: number;
+  totalTax: number;
+  cgstTotal: number;
+  sgstTotal: number;
+  igstTotal: number;
+  roundOff: number;
+  grandTotal: number;
+  amountPaid: number;
+  changeReturned: number;
+  primaryPaymentMode: string;
+  status: string;
+  paymentStatus: string;
+  notes?: string;
+  createdAt: string;
+  items: InvoiceItemResponse[];
+  payments: InvoicePaymentResponse[];
+}
+
+export interface ThermalReceiptItem {
+  name: string;
+  sku: string;
+  hsnSacCode?: string;
+  quantity: number;
+  unitOfMeasure?: string;
+  rate: number;
+  taxRate: number;
+  discount: number;
+  lineTotal: number;
+}
+
+export interface ThermalReceiptResponse {
+  storeName: string;
+  storeCode: string;
+  storeAddress?: string;
+  storePhone?: string;
+  storeEmail?: string;
+  storeGstin?: string;
+  storeState?: string;
+  invoiceNumber: string;
+  dateFormatted: string;
+  timeFormatted: string;
+  cashierName: string;
+  customerName: string;
+  customerPhone: string;
+  items: ThermalReceiptItem[];
+  subtotal: number;
+  discountTotal: number;
+  cgstTotal: number;
+  sgstTotal: number;
+  igstTotal: number;
+  totalTax: number;
+  roundOff: number;
+  grandTotal: number;
+  amountPaid: number;
+  changeReturned: number;
+  paymentMode: string;
+  returnPolicyText: string;
+  footerThankYou: string;
+}
+
+export interface CustomerNotificationSchedule {
+  id: number;
+  customerId: number;
+  customerName: string;
+  customerPhone: string;
+  title: string;
+  scheduleType: string;
+  dayOfMonth: number;
+  channel: string;
+  messageTemplate: string;
+  active: boolean;
+  createdByName: string;
+  lastSentAt?: string;
+  nextRunDate: string;
+  createdAt: string;
+}
+
+export interface CreateScheduleRequest {
+  customerId: number;
+  title: string;
+  scheduleType: string;
+  dayOfMonth: number;
+  channel: string;
+  messageTemplate: string;
+}
+
+export interface NotificationDeliveryLog {
+  id: number;
+  scheduleId?: number;
+  customerName: string;
+  customerPhone: string;
+  channel: string;
+  messageContent: string;
+  deliveryStatus: string;
+  triggerType: string;
+  dispatchedAt: string;
+  errorMessage?: string;
+}
+
 

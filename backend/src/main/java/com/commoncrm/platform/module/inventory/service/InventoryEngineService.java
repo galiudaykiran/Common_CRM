@@ -354,6 +354,51 @@ public class InventoryEngineService {
                 .build();
     }
 
+    /**
+     * Atomically deducts stock for a customer checkout sale using pessimistic locking.
+     * Validates that stock is sufficient, decrements inventory, and creates an audit ledger entry.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void deductStockForSale(Shop shop, Long productId, BigDecimal quantity, String invoiceNumber, Long cashierUserId) {
+        Inventory inventory = inventoryRepository.findForUpdate(shop.getId(), productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory record not found for product id: " + productId));
+
+        Product product = inventory.getProduct();
+        BigDecimal beforeStock = inventory.getCurrentStock() != null ? inventory.getCurrentStock() : BigDecimal.ZERO;
+
+        if (beforeStock.compareTo(quantity) < 0) {
+            throw new BusinessException("Insufficient stock for product '" + product.getName() + "' (SKU: " + product.getSku() + "). " +
+                    "Requested: " + quantity + " " + product.getUnitOfMeasure() + ", Available: " + beforeStock + " " + product.getUnitOfMeasure());
+        }
+
+        BigDecimal afterStock = beforeStock.subtract(quantity);
+        inventory.setCurrentStock(afterStock);
+        inventoryRepository.save(inventory);
+
+        // Record audit transaction
+        BigDecimal unitCost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
+        BigDecimal valuation = unitCost.multiply(quantity);
+
+        InventoryTransaction tx = InventoryTransaction.builder()
+                .tenantId(shop.getTenant().getId())
+                .shop(shop)
+                .inventory(inventory)
+                .product(product)
+                .transactionType("SALE_DEDUCTION")
+                .referenceType("INVOICE")
+                .referenceId(invoiceNumber)
+                .quantityBefore(beforeStock)
+                .quantityDelta(quantity.negate())
+                .quantityAfter(afterStock)
+                .unitCost(unitCost)
+                .totalValuation(valuation)
+                .notes("Billed in invoice #" + invoiceNumber)
+                .createdByUserId(cashierUserId)
+                .build();
+
+        transactionRepository.save(tx);
+    }
+
     private InventoryTransactionResponse toTxResponse(InventoryTransaction tx) {
         return InventoryTransactionResponse.builder()
                 .id(tx.getId())

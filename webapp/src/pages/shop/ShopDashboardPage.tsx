@@ -168,40 +168,6 @@ export const ShopDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Action Operations Station */}
-      <div
-        className="glass-card"
-        style={{
-          padding: '1rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <Sparkles size={16} color="var(--accent-primary)" />
-          <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>Quick Store Shortcuts:</strong>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/shop/products')} className="btn btn-outline btn-sm">
-            <Package size={14} /> Catalog Products
-          </button>
-          <button onClick={() => navigate('/shop/inventory')} className="btn btn-outline btn-sm">
-            <Boxes size={14} /> Inventory & Stock
-          </button>
-          <button onClick={() => navigate('/shop/employees')} className="btn btn-outline btn-sm">
-            <Users size={14} /> Team & Employees
-          </button>
-          <button onClick={() => navigate('/shop/profile')} className="btn btn-outline btn-sm">
-            <Store size={14} /> Store Settings
-          </button>
-        </div>
-      </div>
-
       {/* Primary KPI Metrics Grid */}
       <div className="saas-stat-grid">
         {/* Today's Sales */}

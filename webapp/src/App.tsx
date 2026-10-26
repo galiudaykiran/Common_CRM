@@ -17,6 +17,9 @@ import { EmployeeListPage } from './pages/shop/employees/EmployeeListPage';
 import { ProductListPage } from './pages/shop/inventory/ProductListPage';
 import { InventoryStockPage } from './pages/shop/inventory/InventoryStockPage';
 import { MobileScanBridgePage } from './pages/shop/inventory/MobileScanBridgePage';
+import { PosBillingPage } from './pages/shop/billing/PosBillingPage';
+import { InvoiceHistoryPage } from './pages/shop/billing/InvoiceHistoryPage';
+import { CustomerRemindersPage } from './pages/shop/billing/CustomerRemindersPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -114,7 +117,10 @@ export function App() {
             />
             <Route path="products" element={<ProductListPage />} />
             <Route path="inventory" element={<InventoryStockPage />} />
-            <Route path="sales" element={<div className="glass-card" style={{ padding: '2rem' }}><h3 style={{ margin: '0 0 0.5rem' }}>Point of Sale & Orders</h3><p style={{ color: 'var(--text-secondary)', margin: 0 }}>Slice 7 Sales, invoicing, and order management integration.</p></div>} />
+            <Route path="pos" element={<PosBillingPage />} />
+            <Route path="invoices" element={<InvoiceHistoryPage />} />
+            <Route path="reminders" element={<CustomerRemindersPage />} />
+            <Route path="sales" element={<PosBillingPage />} />
             <Route path="customers" element={<div className="glass-card" style={{ padding: '2rem' }}><h3 style={{ margin: '0 0 0.5rem' }}>Customer Directory</h3><p style={{ color: 'var(--text-secondary)', margin: 0 }}>Slice 5 Customer relationship records integration.</p></div>} />
             <Route
               path="employees"

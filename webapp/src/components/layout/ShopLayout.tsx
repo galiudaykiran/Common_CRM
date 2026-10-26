@@ -23,6 +23,8 @@ import {
   Moon,
   ScanBarcode,
   HelpCircle,
+  Bell,
+  FileText,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -72,6 +74,14 @@ export const ShopLayout: React.FC = () => {
       items: [
         { to: '/shop/dashboard', label: 'Dashboard', icon: LayoutDashboard, always: true, ownerOnly: true },
         { to: '/shop/profile', label: 'Store Profile & Tax', icon: Store, always: true, ownerOnly: true },
+      ],
+    },
+    {
+      title: 'POS & Billing',
+      items: [
+        { to: '/shop/pos', label: 'POS Billing Desk', icon: ShoppingCart, always: true },
+        { to: '/shop/invoices', label: 'Invoices & Receipts', icon: FileText, always: true },
+        { to: '/shop/reminders', label: 'Monthly Reminders', icon: Bell, always: true },
       ],
     },
     {
