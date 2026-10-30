@@ -283,13 +283,15 @@
 }
 
 .reports-pill-badge {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.15rem 0.5rem;
+  padding: 0.12rem 0.45rem;
   border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .pill-success {
@@ -664,3 +666,227 @@
   margin-top: 0.25rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   Header Comparison & Growth Card
+   ========================================================================== */
+.reports-growth-badge-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 0.75rem 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.growth-badge-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.growth-badge-date-pill {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.growth-badge-vs {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.growth-pill-green {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.growth-badge-illustration {
+  font-size: 2.2rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+/* Sparklines inside 4 KPI cards */
+.reports-kpi-sparkline {
+  margin-top: 0.5rem;
+  margin-left: -1.35rem;
+  margin-right: -1.35rem;
+  margin-bottom: -1px;
+  height: 38px;
+  width: calc(100% + 2.7rem);
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Tender Collections Donut Widget
+   ========================================================================== */
+.tender-donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.5rem 0 1rem;
+}
+
+.tender-donut-chart {
+  width: 120px;
+  height: 120px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tender-donut-center {
+  position: absolute;
+  text-align: center;
+}
+
+.tender-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.tender-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.tender-summary-pill {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #059669;
+  margin-top: 0.5rem;
+}
+
+/* ==========================================================================
+   Bottom Row 3-Widget Grid
+   ========================================================================== */
+.reports-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1.35fr 1.25fr;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .reports-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Monthly Comparison 6-Month Chart */
+.monthly-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  height: 140px;
+  padding-top: 15px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.monthly-month-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.monthly-bars-cluster {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+}
+
+.m-bar {
+  width: 7px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease;
+}
+
+.m-bar-rev {
+  background: #6366f1;
+}
+
+.m-bar-exp {
+  background: #f59e0b;
+}
+
+.m-bar-prof {
+  background: #10b981;
+}
+
+.monthly-month-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* Key Insights Cards */
+.insights-vertical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.insight-card-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.insight-icon-bubble {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.insight-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.insight-desc {
+  font-size: 0.69rem;
+  color: var(--text-muted);
+}
+

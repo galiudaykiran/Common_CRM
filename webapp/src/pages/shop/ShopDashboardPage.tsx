@@ -37,6 +37,8 @@ import {
 export const ShopDashboardPage: React.FC = () => {
   const [data, setData] = useState<ShopOwnerDashboard | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<{ name: string; count: number; pct: number }[]>([]);
+  const [backendTrends, setBackendTrends] = useState<DailyTrendPoint[]>([]);
   const [trendFilter, setTrendFilter] = useState<'7d' | '30d' | '3m'>('7d');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,19 +56,48 @@ export const ShopDashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [dashRes, catRes] = await Promise.allSettled([
+      const today = new Date();
+      let start = new Date();
+      if (trendFilter === '7d') start.setDate(today.getDate() - 7);
+      else if (trendFilter === '30d') start.setDate(today.getDate() - 30);
+      else start.setDate(today.getDate() - 90);
+
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+      const [dashRes, catRes, prodRes, trendRes] = await Promise.allSettled([
         shopOwnerApi.getDashboard(),
         inventoryApi.getActiveCategories(),
+        inventoryApi.searchProducts({ size: 100 }),
+        reportsApi.getDailyTrends({ startDate: fmt(start), endDate: fmt(today) }),
       ]);
 
       if (dashRes.status === 'fulfilled') {
         setData(dashRes.value);
       }
       if (catRes.status === 'fulfilled') {
-        setCategories(catRes.value);
+        setCategories(catRes.value || []);
+      }
+      if (trendRes.status === 'fulfilled') {
+        setBackendTrends(trendRes.value || []);
+      }
+
+      if (prodRes.status === 'fulfilled') {
+        const prods = prodRes.value?.content || [];
+        const total = prods.length;
+        const counts: Record<string, number> = {};
+        prods.forEach((p) => {
+          const cName = p.categoryName || 'General';
+          counts[cName] = (counts[cName] || 0) + 1;
+        });
+        const mapped = Object.entries(counts).map(([name, count]) => ({
+          name,
+          count,
+          pct: total > 0 ? Math.round((count / total) * 100) : 0,
+        }));
+        setCategoryCounts(mapped);
       }
     } catch (err) {
-      console.error('Failed to load store dashboard', err);
+      console.error('Failed to load store dashboard data from backend', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -75,7 +106,7 @@ export const ShopDashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [trendFilter]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -837,21 +868,26 @@ export const ShopDashboardPage: React.FC = () => {
 
             {/* Bars */}
             <div className="sales-trend-bars-container" style={{ flex: 1, borderBottom: 'none' }}>
-              {sampleTrendDays.map((d, i) => (
-                <div key={i} className="sales-trend-col">
-                  <div
-                    className="sales-trend-bar"
-                    style={{
-                      height: `${Math.max(12, (d.revenue / 1000) * 100)}px`,
-                      background: i === sampleTrendDays.length - 1
-                        ? 'linear-gradient(180deg, #6366f1 0%, #4338ca 100%)'
-                        : 'linear-gradient(180deg, #c7d2fe 0%, #a5b4fc 100%)',
-                    }}
-                    title={`${d.label}: ₹${d.revenue} (${d.orders} orders)`}
-                  />
-                  <span className="sales-trend-label">{d.label}</span>
-                </div>
-              ))}
+              {(backendTrends && backendTrends.length > 0 ? backendTrends : sampleTrendDays).map((d: any, i: number) => {
+                const rev = Number(d.revenue) || 0;
+                const label = d.dateFormatted ? d.dateFormatted.slice(5) : (d.label || `Day ${i + 1}`);
+                const orders = d.billCount ?? d.orders ?? 0;
+                return (
+                  <div key={i} className="sales-trend-col">
+                    <div
+                      className="sales-trend-bar"
+                      style={{
+                        height: `${Math.max(12, Math.min(130, (rev / 1000) * 100))}px`,
+                        background: rev > 0
+                          ? 'linear-gradient(180deg, #6366f1 0%, #4338ca 100%)'
+                          : 'linear-gradient(180deg, #c7d2fe 0%, #a5b4fc 100%)',
+                      }}
+                      title={`${label}: ₹${rev} (${orders} orders)`}
+                    />
+                    <span className="sales-trend-label">{label}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -876,54 +912,81 @@ export const ShopDashboardPage: React.FC = () => {
             <div className="categories-donut-wrap">
               <svg viewBox="0 0 100 100" width="100%" height="100%">
                 <circle cx="50" cy="50" r="38" stroke="var(--border-subtle)" strokeWidth="14" fill="none" />
-                {/* Segment 1: Dress (50%) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  stroke="#6366f1"
-                  strokeWidth="14"
-                  fill="none"
-                  strokeDasharray="119 238"
-                  strokeDashoffset="0"
-                  transform="rotate(-90 50 50)"
-                />
-                {/* Segment 2: Fashion Accessories (50%) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  stroke="#38bdf8"
-                  strokeWidth="14"
-                  fill="none"
-                  strokeDasharray="119 238"
-                  strokeDashoffset="-119"
-                  transform="rotate(-90 50 50)"
-                />
+                {categoryCounts.length > 0 ? (
+                  categoryCounts.map((cat, i) => {
+                    const colors = ['#6366f1', '#38bdf8', '#10b981', '#f59e0b', '#ec4899'];
+                    const color = colors[i % colors.length];
+                    const circumference = 238;
+                    const strokeLen = (cat.pct / 100) * circumference;
+                    // calculate offset from previous
+                    let prevSum = 0;
+                    for (let j = 0; j < i; j++) prevSum += categoryCounts[j].pct;
+                    const strokeOffset = -(prevSum / 100) * circumference;
+
+                    return (
+                      <circle
+                        key={cat.name}
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        stroke={color}
+                        strokeWidth="14"
+                        fill="none"
+                        strokeDasharray={`${strokeLen} ${circumference}`}
+                        strokeDashoffset={strokeOffset}
+                        transform="rotate(-90 50 50)"
+                      />
+                    );
+                  })
+                ) : (
+                  <>
+                    <circle cx="50" cy="50" r="38" stroke="#6366f1" strokeWidth="14" fill="none" strokeDasharray="119 238" strokeDashoffset="0" transform="rotate(-90 50 50)" />
+                    <circle cx="50" cy="50" r="38" stroke="#38bdf8" strokeWidth="14" fill="none" strokeDasharray="119 238" strokeDashoffset="-119" transform="rotate(-90 50 50)" />
+                  </>
+                )}
               </svg>
               <div className="categories-donut-center">
-                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>2</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                  {data.stats?.totalProducts || 2}
+                </div>
                 <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)' }}>Products</div>
               </div>
             </div>
 
             {/* Legend */}
             <div className="categories-legend-list">
-              <div className="categories-legend-item">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Dress</span>
-                </div>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
-              </div>
-
-              <div className="categories-legend-item">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }} />
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fashion Accessories</span>
-                </div>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
-              </div>
+              {categoryCounts.length > 0 ? (
+                categoryCounts.map((c, i) => {
+                  const colors = ['#6366f1', '#38bdf8', '#10b981', '#f59e0b', '#ec4899'];
+                  const color = colors[i % colors.length];
+                  return (
+                    <div key={c.name} className="categories-legend-item">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{c.name}</span>
+                      </div>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{c.count} ({c.pct}%)</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <>
+                  <div className="categories-legend-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Dress</span>
+                    </div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
+                  </div>
+                  <div className="categories-legend-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }} />
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fashion Accessories</span>
+                    </div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

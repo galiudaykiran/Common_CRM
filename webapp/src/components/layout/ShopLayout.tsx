@@ -256,6 +256,69 @@ export const ShopLayout: React.FC = () => {
           })}
         </nav>
 
+        {/* Upgrade Plan Banner */}
+        <div style={{ padding: '0 1rem 0.75rem' }}>
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: '12px',
+              padding: '0.85rem 0.95rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)',
+                  fontSize: '0.9rem',
+                  flexShrink: 0,
+                }}
+              >
+                👑
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Upgrade Plan</div>
+                <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)', lineHeight: 1.25 }}>
+                  Unlock advanced analytics, multi-store &amp; features.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => alert('Plan management & multi-store upgrades coming soon!')}
+              style={{
+                width: '100%',
+                padding: '0.4rem 0.6rem',
+                borderRadius: '6px',
+                background: 'var(--accent-primary)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.74rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>View Plans</span>
+              <span>&rarr;</span>
+            </button>
+          </div>
+        </div>
+
         {/* User Card & Clear Logout */}
         <div
           style={{
