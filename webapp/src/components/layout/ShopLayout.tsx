@@ -25,6 +25,7 @@ import {
   HelpCircle,
   Bell,
   FileText,
+  Search,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -81,6 +82,7 @@ export const ShopLayout: React.FC = () => {
       items: [
         { to: '/shop/pos', label: 'POS Billing Desk', icon: ShoppingCart, always: true },
         { to: '/shop/invoices', label: 'Invoices & Receipts', icon: FileText, always: true },
+        { to: '/shop/customers', label: 'Customer Directory', icon: Users, always: true },
         { to: '/shop/reminders', label: 'Monthly Reminders', icon: Bell, always: true },
       ],
     },
@@ -92,17 +94,15 @@ export const ShopLayout: React.FC = () => {
       ],
     },
     {
-      title: 'Sales & People',
+      title: 'Team & People',
       items: [
-        { to: '/shop/sales', label: 'Point of Sale & Orders', icon: ShoppingCart, module: 'SALES' },
-        { to: '/shop/customers', label: 'Customer Directory', icon: Users, module: 'CUSTOMERS' },
         { to: '/shop/employees', label: 'Store Employees', icon: UserCheck, always: true, ownerOnly: true },
       ],
     },
     {
       title: 'Finance & Insights',
       items: [
-        { to: '/shop/reports', label: 'Business Reports', icon: BarChart3, always: true, ownerOnly: true },
+        { to: '/shop/reports', label: 'Business Reports & P&L', icon: BarChart3, always: true, ownerOnly: true },
       ],
     },
   ];
@@ -352,24 +352,76 @@ export const ShopLayout: React.FC = () => {
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
-              {storeInfo?.shopName || 'Store Operations'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <h2 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
+              {storeInfo?.shopName || 'Nagaraju Fancy Store'}
             </h2>
-            <span style={{ color: 'var(--border-subtle)' }}>|</span>
-            <span className="badge badge-primary" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-              {storeInfo?.shopCode || 'STORE'}
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--accent-primary)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              {storeInfo?.shopCode || 'NAG_11'}
+            </span>
+          </div>
+
+          {/* Center Global Search Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              padding: '0.42rem 0.85rem',
+              width: '380px',
+              gap: '0.6rem',
+              boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
+            }}
+          >
+            <Search size={15} style={{ color: 'var(--text-muted)' }} />
+            <input
+              placeholder="Search products, customers, invoices..."
+              style={{
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: '0.8rem',
+                color: 'var(--text-primary)',
+                width: '100%',
+              }}
+            />
+            <span
+              style={{
+                fontSize: '0.66rem',
+                fontWeight: 700,
+                padding: '2px 5px',
+                borderRadius: '4px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Ctrl K
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               <Building2 size={15} style={{ color: 'var(--accent-primary)' }} />
-              <span>Tenant: <strong>{storeInfo?.tenantName || 'Authorized Tenant'}</strong></span>
+              <span>Tenant: <strong>{storeInfo?.tenantName || 'Nagaraju Fancy Store Enterprise'}</strong></span>
             </div>
             <span
               className={`badge ${storeInfo?.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}
-              style={{ fontSize: '0.75rem' }}
+              style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px' }}
             >
               {storeInfo?.status || 'ACTIVE'}
             </span>
@@ -380,17 +432,83 @@ export const ShopLayout: React.FC = () => {
               className="btn-icon"
               title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
               style={{
-                width: '36px',
-                height: '36px',
+                width: '34px',
+                height: '34px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-subtle)',
                 background: 'var(--bg-primary)',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {theme === 'dark' ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="#6366f1" />}
+              {theme === 'dark' ? <Sun size={16} color="#f59e0b" /> : <Moon size={16} color="#6366f1" />}
             </button>
+
+            {/* Unread Notifications Bell */}
+            <div style={{ position: 'relative' }}>
+              <button
+                className="btn-icon"
+                title="Notifications"
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Bell size={16} />
+              </button>
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: '0.6rem',
+                  fontWeight: 800,
+                  borderRadius: '50%',
+                  width: '15px',
+                  height: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.35)',
+                }}
+              >
+                3
+              </span>
+            </div>
+
+            {/* User Initial Avatar Circle */}
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: '0.86rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)',
+              }}
+              title={user?.fullName || user?.username || 'Profile'}
+            >
+              {(user?.fullName || user?.username || 'N').charAt(0).toUpperCase()}
+            </div>
           </div>
         </header>
 

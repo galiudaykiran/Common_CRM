@@ -20,6 +20,7 @@ import { MobileScanBridgePage } from './pages/shop/inventory/MobileScanBridgePag
 import { PosBillingPage } from './pages/shop/billing/PosBillingPage';
 import { InvoiceHistoryPage } from './pages/shop/billing/InvoiceHistoryPage';
 import { CustomerRemindersPage } from './pages/shop/billing/CustomerRemindersPage';
+import { CustomerListPage } from './pages/shop/customers/CustomerListPage';
 import { BusinessReportsPage } from './pages/shop/reports/BusinessReportsPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -121,8 +122,8 @@ export function App() {
             <Route path="pos" element={<PosBillingPage />} />
             <Route path="invoices" element={<InvoiceHistoryPage />} />
             <Route path="reminders" element={<CustomerRemindersPage />} />
-            <Route path="sales" element={<PosBillingPage />} />
-            <Route path="customers" element={<div className="glass-card" style={{ padding: '2rem' }}><h3 style={{ margin: '0 0 0.5rem' }}>Customer Directory</h3><p style={{ color: 'var(--text-secondary)', margin: 0 }}>Slice 5 Customer relationship records integration.</p></div>} />
+            <Route path="sales" element={<Navigate to="/shop/pos" replace />} />
+            <Route path="customers" element={<CustomerListPage />} />
             <Route
               path="employees"
               element={
