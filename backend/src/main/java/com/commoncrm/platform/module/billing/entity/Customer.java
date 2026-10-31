@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "customers", indexes = {
         @Index(name = "idx_cust_shop_phone", columnList = "shop_id, phone"),
+        @Index(name = "idx_cust_shop_name", columnList = "shop_id, name"),
         @Index(name = "idx_cust_tenant_shop", columnList = "tenant_id, shop_id")
 })
 @Getter

@@ -177,7 +177,11 @@ public class BillingService {
         BigDecimal invoiceDiscount = request.getInvoiceDiscountTotal() != null ? request.getInvoiceDiscountTotal() : BigDecimal.ZERO;
         BigDecimal totalTax = cgstTotal.add(sgstTotal).add(igstTotal);
 
-        BigDecimal rawGrandTotal = subtotal.subtract(itemDiscountTotal).subtract(invoiceDiscount).add(totalTax);
+        BigDecimal linesSum = itemsToPersist.stream()
+                .map(InvoiceItem::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal rawGrandTotal = linesSum.subtract(invoiceDiscount);
         if (rawGrandTotal.compareTo(BigDecimal.ZERO) < 0) {
             rawGrandTotal = BigDecimal.ZERO;
         }
@@ -203,10 +207,10 @@ public class BillingService {
                 .shop(shop)
                 .invoiceNumber(invoiceNumber)
                 .customer(customer)
-                .customerName(customer != null ? customer.getName() : request.getCustomerName())
+                .customerName(customer != null ? customer.getName() : (request.getCustomerName() != null && !request.getCustomerName().isBlank() ? request.getCustomerName() : "Walk-in Guest"))
                 .customerPhone(customer != null ? customer.getPhone() : request.getCustomerPhone())
-                .cashierUserId(principal.getId())
-                .cashierName(principal.getUsername())
+                .cashierUserId(principal.getId() != null ? principal.getId() : 1L)
+                .cashierName(principal.getUsername() != null ? principal.getUsername() : "Staff")
                 .subtotal(subtotal)
                 .itemDiscountTotal(itemDiscountTotal)
                 .invoiceDiscountTotal(invoiceDiscount)
@@ -369,11 +373,46 @@ public class BillingService {
                 .build();
     }
 
-    private String generateInvoiceNumber(Shop shop) {
+    private synchronized String generateInvoiceNumber(Shop shop) {
         String prefix = (shop.getCode() != null ? shop.getCode().toUpperCase() : "SHOP") + "-INV-";
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
-        long countToday = invoiceRepository.countShopInvoicesSince(shop.getId(), LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()) + 1;
-        return String.format("%s%s-%04d", prefix, datePart, countToday);
+        String monthPattern = prefix + datePart + "-";
+
+        long nextSeq = 1;
+
+        // Query the latest generated invoice number for this shop and month
+        List<String> latest = invoiceRepository.findRecentInvoiceNumbersMatching(
+                shop.getId(),
+                monthPattern + "%",
+                PageRequest.of(0, 1)
+        );
+
+        if (!latest.isEmpty() && latest.get(0) != null) {
+            String lastNum = latest.get(0);
+            try {
+                int lastDash = lastNum.lastIndexOf('-');
+                if (lastDash >= 0 && lastDash < lastNum.length() - 1) {
+                    long parsed = Long.parseLong(lastNum.substring(lastDash + 1));
+                    nextSeq = Math.max(nextSeq, parsed + 1);
+                }
+            } catch (Exception ignored) {
+                long count = invoiceRepository.countShopInvoicesMatching(shop.getId(), monthPattern + "%");
+                nextSeq = Math.max(nextSeq, count + 1);
+            }
+        } else {
+            long count = invoiceRepository.countShopInvoicesMatching(shop.getId(), monthPattern + "%");
+            nextSeq = Math.max(nextSeq, count + 1);
+        }
+
+        String candidate = String.format("%s%04d", monthPattern, nextSeq);
+
+        // Guarantee uniqueness against any existing database records
+        while (invoiceRepository.findByInvoiceNumber(candidate).isPresent()) {
+            nextSeq++;
+            candidate = String.format("%s%04d", monthPattern, nextSeq);
+        }
+
+        return candidate;
     }
 
     private void sendInstantReceiptNotification(Shop shop, Invoice invoice) {

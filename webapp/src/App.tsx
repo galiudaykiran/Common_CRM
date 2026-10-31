@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { NotificationDrawer } from './components/notifications/NotificationDrawer';
 import { AppLayout } from './components/layout/AppLayout';
 import { Login } from './pages/auth/Login';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -70,83 +72,86 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/scan-bridge" element={<MobileScanBridgePage />} />
+        <NotificationProvider>
+          <BrowserRouter>
+            <NotificationDrawer />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/scan-bridge" element={<MobileScanBridgePage />} />
 
-          {/* Platform Admin Routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="shops" element={<ShopListPage />} />
-            <Route path="business-types" element={<BusinessTypesPage />} />
-            <Route path="modules" element={<ModulesPage />} />
-            <Route path="audit-logs" element={<AuditLogsPage />} />
-          </Route>
+              {/* Platform Admin Routes */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DashboardPage />} />
+                <Route path="shops" element={<ShopListPage />} />
+                <Route path="business-types" element={<BusinessTypesPage />} />
+                <Route path="modules" element={<ModulesPage />} />
+                <Route path="audit-logs" element={<AuditLogsPage />} />
+              </Route>
 
-          {/* Shop Holder / Store Operations Routes */}
-          <Route
-            path="/shop"
-            element={
-              <ProtectedRoute>
-                <ShopLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<ShopIndexRedirect />} />
-            <Route
-              path="dashboard"
-              element={
-                <OwnerOnlyRoute>
-                  <ShopDashboardPage />
-                </OwnerOnlyRoute>
-              }
-            />
-            <Route
-              path="profile"
-              element={
-                <OwnerOnlyRoute>
-                  <ShopProfilePage />
-                </OwnerOnlyRoute>
-              }
-            />
-            <Route path="products" element={<ProductListPage />} />
-            <Route path="inventory" element={<InventoryStockPage />} />
-            <Route path="pos" element={<PosBillingPage />} />
-            <Route path="invoices" element={<InvoiceHistoryPage />} />
-            <Route path="reminders" element={<CustomerRemindersPage />} />
-            <Route path="sales" element={<Navigate to="/shop/pos" replace />} />
-            <Route path="customers" element={<CustomerListPage />} />
-            <Route
-              path="employees"
-              element={
-                <OwnerOnlyRoute>
-                  <EmployeeListPage />
-                </OwnerOnlyRoute>
-              }
-            />
-            <Route path="expenses" element={<Navigate to="/shop/reports" replace />} />
-            <Route
-              path="reports"
-              element={
-                <OwnerOnlyRoute>
-                  <BusinessReportsPage />
-                </OwnerOnlyRoute>
-              }
-            />
-          </Route>
+              {/* Shop Holder / Store Operations Routes */}
+              <Route
+                path="/shop"
+                element={
+                  <ProtectedRoute>
+                    <ShopLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<ShopIndexRedirect />} />
+                <Route
+                  path="dashboard"
+                  element={
+                    <OwnerOnlyRoute>
+                      <ShopDashboardPage />
+                    </OwnerOnlyRoute>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <OwnerOnlyRoute>
+                      <ShopProfilePage />
+                    </OwnerOnlyRoute>
+                  }
+                />
+                <Route path="products" element={<ProductListPage />} />
+                <Route path="inventory" element={<InventoryStockPage />} />
+                <Route path="pos" element={<PosBillingPage />} />
+                <Route path="invoices" element={<InvoiceHistoryPage />} />
+                <Route path="reminders" element={<CustomerRemindersPage />} />
+                <Route path="sales" element={<Navigate to="/shop/pos" replace />} />
+                <Route path="customers" element={<CustomerListPage />} />
+                <Route
+                  path="employees"
+                  element={
+                    <OwnerOnlyRoute>
+                      <EmployeeListPage />
+                    </OwnerOnlyRoute>
+                  }
+                />
+                <Route path="expenses" element={<Navigate to="/shop/reports" replace />} />
+                <Route
+                  path="reports"
+                  element={
+                    <OwnerOnlyRoute>
+                      <BusinessReportsPage />
+                    </OwnerOnlyRoute>
+                  }
+                />
+              </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

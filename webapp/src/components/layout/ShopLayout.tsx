@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { shopOwnerApi } from '../../api/shopOwnerApi';
 import { ShopOwnerDashboard, ShopBasicInfo } from '../../types';
@@ -28,11 +28,15 @@ import {
   Search,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 export const ShopLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { unreadCount, setIsAlertDrawerOpen } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isPosPage = location.pathname.startsWith('/shop/pos');
   const [storeInfo, setStoreInfo] = useState<ShopBasicInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -108,7 +112,7 @@ export const ShopLayout: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', overflowX: 'hidden', maxWidth: '100vw' }}>
       {/* Sidebar */}
       <aside
         style={{
@@ -152,7 +156,7 @@ export const ShopLayout: React.FC = () => {
               flexShrink: 0,
             }}
           >
-            🏪
+            <Store size={20} color="#fff" />
           </div>
           <div style={{ overflow: 'hidden' }}>
             <h1
@@ -256,68 +260,7 @@ export const ShopLayout: React.FC = () => {
           })}
         </nav>
 
-        {/* Upgrade Plan Banner */}
-        <div style={{ padding: '0 1rem 0.75rem' }}>
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              borderRadius: '12px',
-              padding: '0.85rem 0.95rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)',
-                  fontSize: '0.9rem',
-                  flexShrink: 0,
-                }}
-              >
-                👑
-              </div>
-              <div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Upgrade Plan</div>
-                <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)', lineHeight: 1.25 }}>
-                  Unlock advanced analytics, multi-store &amp; features.
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => alert('Plan management & multi-store upgrades coming soon!')}
-              style={{
-                width: '100%',
-                padding: '0.4rem 0.6rem',
-                borderRadius: '6px',
-                background: 'var(--accent-primary)',
-                color: '#fff',
-                border: 'none',
-                fontWeight: 700,
-                fontSize: '0.74rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span>View Plans</span>
-              <span>&rarr;</span>
-            </button>
-          </div>
-        </div>
+
 
         {/* User Card & Clear Logout */}
         <div
@@ -370,6 +313,26 @@ export const ShopLayout: React.FC = () => {
             </div>
           </div>
 
+          {user?.roles?.includes('PLATFORM_ADMIN') && (
+            <NavLink
+              to="/"
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.78rem',
+                textDecoration: 'none',
+                padding: '6px 12px',
+                width: '100%',
+              }}
+            >
+              <ShieldCheck size={14} color="var(--accent-primary)" />
+              <span>Platform Admin Console</span>
+            </NavLink>
+          )}
+
           <button
             onClick={handleLogout}
             className="btn"
@@ -398,7 +361,7 @@ export const ShopLayout: React.FC = () => {
       </aside>
 
       {/* Main Container */}
-      <div style={{ marginLeft: 'var(--sidebar-width)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ marginLeft: 'var(--sidebar-width)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden' }}>
         {/* Top Header */}
         <header
           style={{
@@ -444,7 +407,9 @@ export const ShopLayout: React.FC = () => {
               border: '1px solid var(--border-subtle)',
               borderRadius: '8px',
               padding: '0.42rem 0.85rem',
-              width: '380px',
+              flex: 1,
+              maxWidth: '320px',
+              minWidth: '150px',
               gap: '0.6rem',
               boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
             }}
@@ -477,79 +442,52 @@ export const ShopLayout: React.FC = () => {
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              <Building2 size={15} style={{ color: 'var(--accent-primary)' }} />
-              <span>Tenant: <strong>{storeInfo?.tenantName || 'Nagaraju Fancy Store Enterprise'}</strong></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              <Building2 size={14} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+              <span style={{ maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={storeInfo?.tenantName || 'Enterprise'}>
+                {storeInfo?.tenantName || 'Enterprise'}
+              </span>
             </div>
             <span
               className={`badge ${storeInfo?.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}
-              style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px' }}
+              style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px' }}
             >
               {storeInfo?.status || 'ACTIVE'}
             </span>
 
-            {/* Theme Toggle Button */}
-            <button
-              onClick={toggleTheme}
-              className="btn-icon"
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {theme === 'dark' ? <Sun size={16} color="#f59e0b" /> : <Moon size={16} color="#6366f1" />}
-            </button>
-
-            {/* Unread Notifications Bell */}
-            <div style={{ position: 'relative' }}>
+            {/* Floating Chip Card for Theme Switch & Alert Notifications */}
+            <div className="floating-header-chip" role="toolbar" aria-label="Quick Actions">
               <button
-                className="btn-icon"
-                title="Notifications"
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--bg-primary)',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                type="button"
+                onClick={toggleTheme}
+                className="chip-item chip-theme-btn"
+                title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
               >
-                <Bell size={16} />
+                {theme === 'dark' ? (
+                  <Sun size={15} color="#f59e0b" style={{ flexShrink: 0 }} />
+                ) : (
+                  <Moon size={15} color="#6366f1" style={{ flexShrink: 0 }} />
+                )}
+                <span className="chip-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
               </button>
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-4px',
-                  right: '-4px',
-                  background: '#ef4444',
-                  color: '#fff',
-                  fontSize: '0.6rem',
-                  fontWeight: 800,
-                  borderRadius: '50%',
-                  width: '15px',
-                  height: '15px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.35)',
-                }}
+
+              <div className="chip-divider" />
+
+              <button
+                type="button"
+                onClick={() => setIsAlertDrawerOpen(true)}
+                className="chip-item chip-alert-btn"
+                title="Store Alerts & Notifications"
               >
-                3
-              </span>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Bell size={15} style={{ color: unreadCount > 0 ? '#ef4444' : 'var(--text-secondary)' }} />
+                  {unreadCount > 0 && (
+                    <span className="chip-counter-badge">{unreadCount}</span>
+                  )}
+                </div>
+                <span className="chip-label">Alerts</span>
+              </button>
             </div>
 
             {/* User Initial Avatar Circle */}
@@ -576,7 +514,7 @@ export const ShopLayout: React.FC = () => {
         </header>
 
         {/* View Content */}
-        <main style={{ padding: '2rem', flex: 1, minWidth: 0 }}>
+        <main style={{ padding: isPosPage ? 0 : '2rem', flex: 1, minWidth: 0, overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <Outlet context={{ storeInfo, reloadStoreInfo: () => shopOwnerApi.getInfo().then(setStoreInfo) }} />
         </main>
       </div>

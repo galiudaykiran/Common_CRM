@@ -39,7 +39,7 @@ public class CustomerController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "15") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<CustomerResponse> response = customerService.searchCustomers(principal, search, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Customers retrieved successfully"));
     }

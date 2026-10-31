@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileText,
   Search,
@@ -16,9 +17,13 @@ import { ThermalReceiptModal } from './ThermalReceiptModal';
 import './billing.css';
 
 export const InvoiceHistoryPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(urlSearch);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -28,16 +33,16 @@ export const InvoiceHistoryPage: React.FC = () => {
   const [showThermalModal, setShowThermalModal] = useState(false);
 
   useEffect(() => {
-    loadInvoices();
-  }, [page]);
+    loadInvoices(search);
+  }, [page, urlSearch]);
 
-  const loadInvoices = async () => {
+  const loadInvoices = async (query = search) => {
     setLoading(true);
     try {
       const res = await billingApi.searchInvoices({
-        search: search.trim() || undefined,
+        search: query.trim() || undefined,
         page,
-        size: 15,
+        size: 10,
       });
       setInvoices(res.content);
       setTotalPages(res.totalPages);
@@ -179,9 +184,19 @@ export const InvoiceHistoryPage: React.FC = () => {
                       {new Date(inv.createdAt).toLocaleString()}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.customerName || 'Walk-in Guest'}</div>
-                      {inv.customerPhone && (
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{inv.customerPhone}</div>
+                      {inv.customerPhone ? (
+                        <div
+                          onClick={() => navigate(`/shop/customers?search=${encodeURIComponent(inv.customerPhone)}`)}
+                          style={{ cursor: 'pointer' }}
+                          title="View customer CRM profile"
+                        >
+                          <div style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{inv.customerName || 'Walk-in Guest'}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                            {inv.customerPhone} ↗
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.customerName || 'Walk-in Guest'}</div>
                       )}
                     </td>
                     <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -294,7 +309,16 @@ export const InvoiceHistoryPage: React.FC = () => {
                     {selectedInvoice.items?.map((it) => (
                       <tr key={it.id} style={{ borderBottom: '1px solid var(--table-border)' }}>
                         <td style={{ padding: '8px 12px' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{it.productName}</div>
+                          <div
+                            onClick={() => {
+                              setSelectedInvoice(null);
+                              navigate(`/shop/products?search=${encodeURIComponent(it.productName)}`);
+                            }}
+                            style={{ fontWeight: 600, color: 'var(--accent-primary)', cursor: 'pointer' }}
+                            title="Jump to Product Catalog"
+                          >
+                            {it.productName} ↗
+                          </div>
                           <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>SKU: {it.sku}</div>
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>{it.quantity}</td>

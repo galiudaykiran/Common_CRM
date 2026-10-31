@@ -20,10 +20,6 @@ import java.time.LocalDate;
 @Builder
 public class ShopExpense extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 

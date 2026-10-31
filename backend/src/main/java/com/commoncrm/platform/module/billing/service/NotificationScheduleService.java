@@ -219,10 +219,7 @@ public class NotificationScheduleService {
 
         int count = 0;
         for (CustomerNotificationSchedule s : due) {
-            String message = s.getMessageTemplate()
-                    .replace("{customer_name}", s.getCustomer().getName())
-                    .replace("{shop_name}", s.getShop().getName())
-                    .replace("{phone}", s.getCustomer().getPhone());
+            String message = resolveTemplate(s.getMessageTemplate(), s.getCustomer(), s.getShop());
 
             NotificationDeliveryLog log = NotificationDeliveryLog.builder()
                     .tenantId(s.getTenantId())
@@ -245,6 +242,59 @@ public class NotificationScheduleService {
             count++;
         }
         return count;
+    }
+
+    @Transactional
+    public DeliveryLogResponse sendScheduleNow(UserPrincipal principal, Long scheduleId) {
+        Shop shop = shopContextService.requireCurrentShop(principal);
+        CustomerNotificationSchedule s = scheduleRepository.findByIdAndShopId(scheduleId, shop.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule not found with id: " + scheduleId));
+
+        String message = resolveTemplate(s.getMessageTemplate(), s.getCustomer(), s.getShop());
+
+        NotificationDeliveryLog log = NotificationDeliveryLog.builder()
+                .tenantId(s.getTenantId())
+                .shop(s.getShop())
+                .customer(s.getCustomer())
+                .notificationType("MONTHLY_REMINDER")
+                .recipientPhone(s.getCustomer().getPhone())
+                .recipientEmail(s.getCustomer().getEmail())
+                .channel(s.getChannel())
+                .messageContent(message)
+                .deliveryStatus("SENT")
+                .build();
+
+        log = deliveryLogRepository.save(log);
+
+        s.setLastSentAt(Instant.now());
+        LocalDate today = LocalDate.now();
+        LocalDate nextMonth = today.plusMonths(1);
+        int safeDay = Math.min(s.getDayOfMonth(), nextMonth.lengthOfMonth());
+        s.setNextRunDate(nextMonth.withDayOfMonth(safeDay));
+        scheduleRepository.save(s);
+
+        return DeliveryLogResponse.builder()
+                .id(log.getId())
+                .customerId(log.getCustomer() != null ? log.getCustomer().getId() : null)
+                .customerName(log.getCustomer() != null ? log.getCustomer().getName() : "Customer")
+                .recipientPhone(log.getRecipientPhone())
+                .recipientEmail(log.getRecipientEmail())
+                .notificationType(log.getNotificationType())
+                .channel(log.getChannel())
+                .messageContent(log.getMessageContent())
+                .deliveryStatus(log.getDeliveryStatus())
+                .createdAt(log.getCreatedAt())
+                .build();
+    }
+
+    private String resolveTemplate(String template, Customer customer, Shop shop) {
+        if (template == null) return "";
+        return template
+                .replace("{customerName}", customer != null && customer.getName() != null ? customer.getName() : "Customer")
+                .replace("{customer_name}", customer != null && customer.getName() != null ? customer.getName() : "Customer")
+                .replace("{storeName}", shop != null && shop.getName() != null ? shop.getName() : "Store")
+                .replace("{shop_name}", shop != null && shop.getName() != null ? shop.getName() : "Store")
+                .replace("{phone}", customer != null && customer.getPhone() != null ? customer.getPhone() : "");
     }
 
     public ScheduleResponse toScheduleResponse(CustomerNotificationSchedule s) {

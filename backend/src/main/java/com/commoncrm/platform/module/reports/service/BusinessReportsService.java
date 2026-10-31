@@ -19,8 +19,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -138,6 +140,98 @@ public class BusinessReportsService {
 
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
 
+        // CASE 1: Single Day / Today -> Group by operating hours timing intervals (08:00 to 22:00)
+        if (start.equals(end)) {
+            List<DailyTrendPoint> hourlyPoints = new ArrayList<>();
+            int[] hours = {8, 10, 12, 14, 16, 18, 20, 22};
+            for (int h : hours) {
+                int nextH = h + 2;
+                String label = String.format("%02d:00", h);
+                BigDecimal slotRev = BigDecimal.ZERO;
+                BigDecimal slotCogs = BigDecimal.ZERO;
+                int billCount = 0;
+
+                for (Invoice inv : invoices) {
+                    int invHour = inv.getCreatedAt().atZone(zone).getHour();
+                    if (invHour >= h && invHour < nextH) {
+                        BigDecimal net = (inv.getSubtotal() != null ? inv.getSubtotal() : BigDecimal.ZERO)
+                                .subtract(inv.getItemDiscountTotal() != null ? inv.getItemDiscountTotal() : BigDecimal.ZERO)
+                                .subtract(inv.getInvoiceDiscountTotal() != null ? inv.getInvoiceDiscountTotal() : BigDecimal.ZERO);
+                        slotRev = slotRev.add(net);
+                        if (inv.getItems() != null) {
+                            for (InvoiceItem item : inv.getItems()) {
+                                BigDecimal cost = item.getUnitCost() != null ? item.getUnitCost() : BigDecimal.ZERO;
+                                BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                                slotCogs = slotCogs.add(cost.multiply(qty));
+                            }
+                        }
+                        billCount++;
+                    }
+                }
+                BigDecimal slotGross = slotRev.subtract(slotCogs);
+                hourlyPoints.add(DailyTrendPoint.builder()
+                        .dateFormatted(label)
+                        .revenue(slotRev.setScale(2, RoundingMode.HALF_UP))
+                        .cogs(slotCogs.setScale(2, RoundingMode.HALF_UP))
+                        .grossProfit(slotGross.setScale(2, RoundingMode.HALF_UP))
+                        .expenses(BigDecimal.ZERO)
+                        .netProfit(slotGross.setScale(2, RoundingMode.HALF_UP))
+                        .billCount(billCount)
+                        .build());
+            }
+            return hourlyPoints;
+        }
+
+        // CASE 2: Multi-month / Quarter / Year -> If span > 62 days, group by Month
+        long daysDiff = ChronoUnit.DAYS.between(start, end);
+        if (daysDiff > 62) {
+            Map<YearMonth, List<Invoice>> invoicesByMonth = invoices.stream()
+                    .collect(Collectors.groupingBy(inv -> YearMonth.from(inv.getCreatedAt().atZone(zone))));
+
+            DateTimeFormatter ymFormatter = DateTimeFormatter.ofPattern("MMM yyyy");
+            List<DailyTrendPoint> monthlyPoints = new ArrayList<>();
+            YearMonth startYm = YearMonth.from(start);
+            YearMonth endYm = YearMonth.from(end);
+
+            for (YearMonth ym = startYm; !ym.isAfter(endYm); ym = ym.plusMonths(1)) {
+                List<Invoice> monthInvoices = invoicesByMonth.getOrDefault(ym, Collections.emptyList());
+                BigDecimal mRev = BigDecimal.ZERO;
+                BigDecimal mCogs = BigDecimal.ZERO;
+                for (Invoice inv : monthInvoices) {
+                    BigDecimal net = (inv.getSubtotal() != null ? inv.getSubtotal() : BigDecimal.ZERO)
+                            .subtract(inv.getItemDiscountTotal() != null ? inv.getItemDiscountTotal() : BigDecimal.ZERO)
+                            .subtract(inv.getInvoiceDiscountTotal() != null ? inv.getInvoiceDiscountTotal() : BigDecimal.ZERO);
+                    mRev = mRev.add(net);
+                    if (inv.getItems() != null) {
+                        for (InvoiceItem item : inv.getItems()) {
+                            BigDecimal cost = item.getUnitCost() != null ? item.getUnitCost() : BigDecimal.ZERO;
+                            BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                            mCogs = mCogs.add(cost.multiply(qty));
+                        }
+                    }
+                }
+                LocalDate monthStart = ym.atDay(1);
+                LocalDate monthEnd = ym.atEndOfMonth();
+                BigDecimal mExpenses = expenseRepository.sumExpensesByShopIdAndDateBetween(shop.getId(), monthStart, monthEnd);
+                if (mExpenses == null) mExpenses = BigDecimal.ZERO;
+
+                BigDecimal mGross = mRev.subtract(mCogs);
+                BigDecimal mNet = mGross.subtract(mExpenses);
+
+                monthlyPoints.add(DailyTrendPoint.builder()
+                        .dateFormatted(ym.format(ymFormatter))
+                        .revenue(mRev.setScale(2, RoundingMode.HALF_UP))
+                        .cogs(mCogs.setScale(2, RoundingMode.HALF_UP))
+                        .grossProfit(mGross.setScale(2, RoundingMode.HALF_UP))
+                        .expenses(mExpenses.setScale(2, RoundingMode.HALF_UP))
+                        .netProfit(mNet.setScale(2, RoundingMode.HALF_UP))
+                        .billCount(monthInvoices.size())
+                        .build());
+            }
+            return monthlyPoints;
+        }
+
+        // CASE 3: Days interval (7 Days, This Month, Last Month) -> Group by individual day
         Map<LocalDate, List<Invoice>> invoicesByDate = invoices.stream()
                 .collect(Collectors.groupingBy(inv -> inv.getCreatedAt().atZone(zone).toLocalDate()));
 

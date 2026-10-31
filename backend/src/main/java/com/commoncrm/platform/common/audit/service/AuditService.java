@@ -89,6 +89,16 @@ public class AuditService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<AuditLogResponse> getAllActivityForTenant(Long tenantId) {
+        if (tenantId == null) {
+            return List.of();
+        }
+        return auditLogRepository.findTop50ByTenantIdOrderByCreatedAtDesc(tenantId).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
     private AuditLogResponse mapToDto(AuditLog audit) {
         return AuditLogResponse.builder()
                 .id(audit.getId())

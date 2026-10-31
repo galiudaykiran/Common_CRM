@@ -19,9 +19,16 @@ import {
   Phone,
   Pause,
   Clock,
+  Check,
+  X,
+  Tag,
+  Package,
+  ShoppingBag,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { inventoryApi } from '../../../api/inventoryApi';
 import { billingApi } from '../../../api/billingApi';
+import { soundFx } from '../../../utils/soundEffects';
 import {
   Product,
   Category,
@@ -46,6 +53,7 @@ interface CartItem {
 
 export const PosBillingPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
@@ -88,6 +96,29 @@ export const PosBillingPage: React.FC = () => {
     state: '',
     gstin: '',
   });
+
+  // Debounced customer live search by name or phone
+  useEffect(() => {
+    if (!customerSearch.trim() || customerSearch.trim().length < 2) {
+      setCustomerResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      billingApi
+        .searchCustomers({ search: customerSearch.trim(), page: 0, size: 8 })
+        .then((res) => setCustomerResults(res.content || []))
+        .catch(() => setCustomerResults([]));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
+
+  const getCategoryIcon = (categoryName?: string) => {
+    const name = (categoryName || '').toLowerCase();
+    if (name.includes('shoe') || name.includes('footwear')) return <Tag size={16} />;
+    if (name.includes('toy') || name.includes('game')) return <Sparkles size={16} />;
+    if (name.includes('cloth') || name.includes('fashion') || name.includes('apparel')) return <ShoppingBag size={16} />;
+    return <Package size={16} />;
+  };
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -177,6 +208,7 @@ export const PosBillingPage: React.FC = () => {
     try {
       const prod = await inventoryApi.getProductByBarcode(barcode);
       if (prod) {
+        soundFx.playBarcodeBeep();
         addToCart(prod);
         setBarcodeInput('');
       } else {
@@ -185,6 +217,7 @@ export const PosBillingPage: React.FC = () => {
     } catch (err) {
       const found = products.find((p) => p.barcode === barcode || p.sku.toLowerCase() === barcode.toLowerCase());
       if (found) {
+        soundFx.playBarcodeBeep();
         addToCart(found);
         setBarcodeInput('');
       } else {
@@ -194,6 +227,7 @@ export const PosBillingPage: React.FC = () => {
   };
 
   const addToCart = (product: Product) => {
+    soundFx.playClick();
     const availableStock = product.availableStock ?? 0;
     if (availableStock <= 0) {
       alert(`Warning: '${product.name}' is out of stock!`);
@@ -233,7 +267,52 @@ export const PosBillingPage: React.FC = () => {
     });
   };
 
+  // Cross-domain Deep-linking: auto-select customer and auto-stage scanned/selected product
+  useEffect(() => {
+    const customerPhone = searchParams.get('customerPhone');
+    const customerName = searchParams.get('customerName');
+    if (customerPhone) {
+      billingApi
+        .searchCustomers({ search: customerPhone, page: 0, size: 10 })
+        .then((res) => {
+          if (res.content && res.content.length > 0) {
+            setSelectedCustomer(res.content[0]);
+          } else if (customerName) {
+            setSelectedCustomer({
+              id: 0,
+              name: customerName,
+              phone: customerPhone,
+              totalVisits: 0,
+              totalSpend: 0,
+              loyaltyPoints: 0,
+            } as any);
+          }
+        })
+        .catch((err) => console.error('Failed to link customer to POS', err));
+    }
+
+    const barcode = searchParams.get('barcode');
+    const search = searchParams.get('search');
+    if (barcode) {
+      inventoryApi
+        .getProductByBarcode(barcode)
+        .then((product) => {
+          if (product) {
+            addToCart(product);
+          }
+        })
+        .catch(() => {
+          setSearchQuery(barcode);
+          loadProducts(null, barcode);
+        });
+    } else if (search) {
+      setSearchQuery(search);
+      loadProducts(null, search);
+    }
+  }, [searchParams]);
+
   const updateQuantity = (productId: number, delta: number) => {
+    soundFx.playClick();
     setCart((prev) =>
       prev
         .map((item) => {
@@ -388,6 +467,7 @@ export const PosBillingPage: React.FC = () => {
       customerAddress: selectedCustomer?.address,
       invoiceDiscountTotal: overallDiscount,
       paymentMode,
+      primaryPaymentMode: paymentMode,
       amountPaid: paymentMode === 'CASH' ? tenderedNumeric : roundedGrandTotal,
       notes: invoiceNotes,
       sendReceiptNotification: sendDigitalReceipt,
@@ -401,6 +481,7 @@ export const PosBillingPage: React.FC = () => {
         {
           paymentMode,
           amount: roundedGrandTotal,
+          referenceNumber: paymentMode === 'UPI' ? upiRef : paymentMode === 'CARD' ? cardRef : undefined,
           transactionReference: paymentMode === 'UPI' ? upiRef : paymentMode === 'CARD' ? cardRef : undefined,
           notes: paymentMode === 'CASH' && changeReturned > 0 ? `Change: ₹${changeReturned.toFixed(2)}` : undefined,
         },
@@ -414,6 +495,7 @@ export const PosBillingPage: React.FC = () => {
       const receipt = await billingApi.getThermalReceipt(invoice.invoiceNumber);
       setLatestReceipt(receipt);
       setShowReceiptModal(true);
+      soundFx.playCashRegister();
 
       setCart([]);
       setSelectedCustomer(null);
@@ -434,7 +516,7 @@ export const PosBillingPage: React.FC = () => {
       <div className="pos-topbar">
         <div className="pos-brand-group">
           <div className="pos-brand-icon">
-            <Sparkles size={20} />
+            <Sparkles size={18} />
           </div>
           <div>
             <div className="pos-brand-title">
@@ -444,7 +526,7 @@ export const PosBillingPage: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Cashier: <strong style={{ color: 'var(--text-primary)' }}>{user?.fullName || user?.username}</strong> • Automatic Stock Deduction
+              Cashier: <strong style={{ color: 'var(--text-primary)' }}>{user?.fullName || user?.username}</strong> • Instant Auto-Deduction
             </div>
           </div>
         </div>
@@ -452,32 +534,36 @@ export const PosBillingPage: React.FC = () => {
         {/* Barcode scanner */}
         <form onSubmit={handleBarcodeSubmit} className="pos-barcode-form">
           <div className="pos-input-container">
-            <Barcode size={16} className="pos-input-icon" />
+            <Barcode size={15} className="pos-input-icon" />
             <input
               ref={barcodeInputRef}
               type="text"
               value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
-              placeholder="Scan Barcode / SKU + Enter..."
+              placeholder="Scan Barcode / SKU + Enter... [F2]"
               className="pos-barcode-input"
             />
           </div>
           <button
             type="submit"
             className="btn-primary"
-            style={{ padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{ padding: '7px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
-            <Plus size={14} /> Add
+            <Plus size={13} /> Add
           </button>
         </form>
 
-        {/* Actions */}
+        {/* Shortcuts & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="pos-shortcut-hint" title="Keyboard Shortcuts">
+            [F2] Scan • [F4] Pay • [Esc] Close
+          </span>
+
           {parkedCarts.length > 0 && (
             <button
               onClick={() => setShowParkedList(true)}
               style={{
-                padding: '8px 12px',
+                padding: '6px 10px',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--warning)',
                 background: 'var(--warning-bg)',
@@ -490,7 +576,7 @@ export const PosBillingPage: React.FC = () => {
                 gap: '5px',
               }}
             >
-              <Clock size={13} /> Parked ({parkedCarts.length})
+              <Clock size={12} /> Parked ({parkedCarts.length})
             </button>
           )}
 
@@ -499,7 +585,7 @@ export const PosBillingPage: React.FC = () => {
             disabled={cart.length === 0}
             title="Hold current cart to bill next customer"
             style={{
-              padding: '8px 12px',
+              padding: '6px 10px',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               background: 'var(--bg-card)',
@@ -513,14 +599,14 @@ export const PosBillingPage: React.FC = () => {
               gap: '4px',
             }}
           >
-            <Pause size={12} /> Hold Cart
+            <Pause size={12} /> Hold
           </button>
 
           <button
             onClick={() => loadProducts(selectedCategory, searchQuery)}
             title="Refresh Catalog"
             style={{
-              padding: '8px',
+              padding: '6px 8px',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               background: 'var(--bg-card)',
@@ -528,27 +614,28 @@ export const PosBillingPage: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={14} />
           </button>
+
           <button
             onClick={clearCart}
             disabled={cart.length === 0}
             style={{
-              padding: '8px 14px',
+              padding: '6px 10px',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--danger)',
               background: 'var(--danger-bg)',
               color: 'var(--danger)',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 600,
               cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
               opacity: cart.length === 0 ? 0.4 : 1,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
             }}
           >
-            <Trash2 size={14} /> Clear Cart
+            <Trash2 size={13} /> Clear
           </button>
         </div>
       </div>
@@ -560,7 +647,7 @@ export const PosBillingPage: React.FC = () => {
           {/* Search Box */}
           <div className="pos-search-bar">
             <div className="pos-input-container" style={{ flex: 1 }}>
-              <Search size={16} className="pos-input-icon" />
+              <Search size={15} className="pos-input-icon" />
               <input
                 type="text"
                 value={searchQuery}
@@ -568,6 +655,26 @@ export const PosBillingPage: React.FC = () => {
                 placeholder="Search products by title, SKU, or category..."
                 className="pos-search-input"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    loadProducts(selectedCategory, '');
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -577,7 +684,7 @@ export const PosBillingPage: React.FC = () => {
               onClick={() => handleCategorySelect(null)}
               className={`pos-category-chip ${selectedCategory === null ? 'active' : ''}`}
             >
-              All Items
+              <Package size={12} /> All Items
             </button>
             {categories.map((cat) => (
               <button
@@ -585,7 +692,7 @@ export const PosBillingPage: React.FC = () => {
                 onClick={() => handleCategorySelect(cat.id)}
                 className={`pos-category-chip ${selectedCategory === cat.id ? 'active' : ''}`}
               >
-                {cat.name}
+                {getCategoryIcon(cat.name)} {cat.name}
               </button>
             ))}
           </div>
@@ -607,45 +714,61 @@ export const PosBillingPage: React.FC = () => {
                 const stock = prod.availableStock ?? 0;
                 const isLow = prod.isLowStock || (stock > 0 && stock <= (prod.reorderLevel ?? 5));
                 const isOut = prod.isOutOfStock || stock <= 0;
+                const cartItem = cart.find((it) => it.product.id === prod.id);
+                const inCartQty = cartItem ? cartItem.quantity : 0;
 
                 return (
                   <div
                     key={prod.id}
                     onClick={() => addToCart(prod)}
-                    className="pos-product-card"
+                    className={`pos-product-card ${inCartQty > 0 ? 'in-cart' : ''}`}
                     style={{ opacity: isOut ? 0.6 : 1 }}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="pos-card-header">
                         <span className="pos-card-sku">{prod.sku}</span>
                         {isOut ? (
-                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-bg)', padding: '1px 5px', borderRadius: '4px' }}>
-                            Out of Stock
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-bg)', padding: '1px 5px', borderRadius: '4px' }}>
+                            ● Out of Stock
                           </span>
                         ) : isLow ? (
-                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--warning)', background: 'var(--warning-bg)', padding: '1px 5px', borderRadius: '4px' }}>
-                            Low: {stock}
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--warning)', background: 'var(--warning-bg)', padding: '1px 5px', borderRadius: '4px' }}>
+                            ● Low: {stock}
                           </span>
                         ) : (
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            Stock: {stock}
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--success)', background: 'var(--success-bg)', padding: '1px 5px', borderRadius: '4px' }}>
+                            ● In Stock: {stock}
                           </span>
                         )}
                       </div>
-                      <h4 className="pos-card-title">{prod.name}</h4>
-                      <div className="pos-card-cat">{prod.categoryName || 'General'}</div>
+
+                      <div className="pos-card-body">
+                        <div className="pos-card-icon-box">
+                          {getCategoryIcon(prod.categoryName)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h4 className="pos-card-title" title={prod.name}>{prod.name}</h4>
+                          <div className="pos-card-cat">{prod.categoryName || 'General'}</div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="pos-card-footer">
                       <div>
                         <div className="pos-card-price">₹{Number(prod.sellingPrice).toFixed(2)}</div>
                         {prod.taxRate ? (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GST {prod.taxRate}%</div>
+                          <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>+{prod.taxRate}% GST</div>
                         ) : null}
                       </div>
-                      <button className="pos-card-add-btn">
-                        <Plus size={16} />
-                      </button>
+                      {inCartQty > 0 ? (
+                        <span className="pos-in-cart-pill" title={`${inCartQty} currently in bill`}>
+                          <Check size={10} /> {inCartQty} in cart
+                        </span>
+                      ) : (
+                        <button className="pos-card-add-btn" title="Add to bill">
+                          <Plus size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -659,10 +782,12 @@ export const PosBillingPage: React.FC = () => {
           {/* Customer Selection */}
           <div className="pos-customer-box">
             <div className="pos-customer-header">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-                <User size={14} color="var(--accent-primary)" /> Customer Details
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)' }}>
+                <User size={13} color="var(--accent-primary)" />
+                {selectedCustomer ? 'Customer Account' : 'Customer Assignment'}
               </span>
               <button
+                type="button"
                 onClick={() => setShowAddCustomerModal(true)}
                 style={{
                   background: 'none',
@@ -673,45 +798,61 @@ export const PosBillingPage: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '3px',
                 }}
               >
-                <UserPlus size={12} /> + New Customer
+                <UserPlus size={11} /> + New Customer
               </button>
             </div>
 
             {selectedCustomer ? (
               <div className="pos-selected-customer">
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedCustomer.name}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {selectedCustomer.phone} {selectedCustomer.gstin ? `• GSTIN: ${selectedCustomer.gstin}` : ''}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.2)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px' }}>
+                    {selectedCustomer.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '12px' }}>{selectedCustomer.name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {selectedCustomer.phone} {selectedCustomer.gstin ? `• GSTIN: ${selectedCustomer.gstin}` : ''}
+                    </div>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedCustomer(null)}
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', fontWeight: 'bold', cursor: 'pointer' }}
+                  title="Revert to Walk-in Guest"
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', fontWeight: 'bold', cursor: 'pointer', fontSize: '11px', padding: '2px 6px' }}
                 >
-                  ✕
+                  ✕ Clear
                 </button>
               </div>
             ) : (
               <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Search customer by name or phone..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--input-border)',
-                    background: 'var(--input-bg)',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px',
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div className="pos-input-container" style={{ flex: 1 }}>
+                    <Search size={13} className="pos-input-icon" />
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="Search customer by phone or name..."
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px 6px 28px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--input-border)',
+                        background: 'var(--input-bg)',
+                        color: 'var(--text-primary)',
+                        fontSize: '11px',
+                      }}
+                    />
+                  </div>
+                  <div className="pos-walkin-pill" title="Default Cash Customer">
+                    <User size={11} /> Walk-in Guest
+                  </div>
+                </div>
+
                 {customerResults.length > 0 && (
                   <div
                     style={{
@@ -741,11 +882,19 @@ export const PosBillingPage: React.FC = () => {
                           padding: '8px 12px',
                           cursor: 'pointer',
                           borderBottom: '1px solid var(--border-subtle)',
-                          fontSize: '12px',
+                          fontSize: '11px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
                         }}
                       >
-                        <div style={{ fontWeight: 600 }}>{cust.name}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{cust.phone}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cust.name}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                            {cust.phone} {cust.city ? `• ${cust.city}` : ''}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 700 }}>Select</span>
                       </div>
                     ))}
                   </div>
@@ -758,10 +907,10 @@ export const PosBillingPage: React.FC = () => {
           <div className="pos-cart-items">
             {cart.length === 0 ? (
               <div className="pos-cart-empty">
-                <ShoppingCart size={40} style={{ opacity: 0.3 }} />
-                <div style={{ fontWeight: 600 }}>Cart is empty</div>
-                <div style={{ fontSize: '11px', maxWidth: '180px' }}>
-                  Click catalog products or scan barcode to add to bill
+                <ShoppingCart size={38} style={{ opacity: 0.35, color: 'var(--accent-primary)' }} />
+                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Billing Cart is Empty</div>
+                <div style={{ fontSize: '11px', maxWidth: '220px', lineHeight: 1.4 }}>
+                  Scan barcode [F2] or click any product from the catalog to add items to bill
                 </div>
               </div>
             ) : (
@@ -771,26 +920,27 @@ export const PosBillingPage: React.FC = () => {
                     <div>
                       <div className="pos-item-name">{item.product.name}</div>
                       <div className="pos-item-meta">
-                        {item.product.sku} • ₹{item.unitPrice.toFixed(2)}/unit
+                        {item.product.sku} • ₹{item.unitPrice.toFixed(2)} / unit
                       </div>
                     </div>
                     <button
                       onClick={() => removeFromCart(item.product.id)}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      title="Remove item"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
 
                   <div className="pos-item-controls">
                     {/* Stepper */}
                     <div className="pos-stepper">
-                      <button className="pos-step-btn" onClick={() => updateQuantity(item.product.id, -1)}>
-                        <Minus size={12} />
+                      <button className="pos-step-btn" onClick={() => updateQuantity(item.product.id, -1)} title="Decrease quantity">
+                        <Minus size={11} />
                       </button>
                       <span className="pos-step-val">{item.quantity}</span>
-                      <button className="pos-step-btn" onClick={() => updateQuantity(item.product.id, 1)}>
-                        <Plus size={12} />
+                      <button className="pos-step-btn" onClick={() => updateQuantity(item.product.id, 1)} title="Increase quantity">
+                        <Plus size={11} />
                       </button>
                     </div>
 
@@ -830,24 +980,24 @@ export const PosBillingPage: React.FC = () => {
                   placeholder="0.00"
                   style={{
                     width: '100%',
-                    padding: '6px 8px',
+                    padding: '5px 8px',
                     borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--input-border)',
                     background: 'var(--input-bg)',
                     color: 'var(--text-primary)',
                     fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: '12px',
+                    fontSize: '11px',
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '12px' }}>
                 <input
                   type="checkbox"
                   id="sendDigitalReceipt"
                   checked={sendDigitalReceipt}
                   onChange={(e) => setSendDigitalReceipt(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  style={{ width: '15px', height: '15px', cursor: 'pointer' }}
                 />
                 <label htmlFor="sendDigitalReceipt" style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                   Digital WhatsApp / SMS
@@ -855,9 +1005,45 @@ export const PosBillingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Quick Cash Tender Presets */}
+            {roundedGrandTotal > 0 && (
+              <div className="pos-quick-tender-strip">
+                <button
+                  type="button"
+                  className="pos-quick-tender-btn"
+                  onClick={() => {
+                    setTenderedAmount(roundedGrandTotal.toString());
+                    setPaymentMode('CASH');
+                    setShowPaymentModal(true);
+                  }}
+                  title="Tender Exact Cash"
+                >
+                  Exact ₹{roundedGrandTotal}
+                </button>
+                {[roundedGrandTotal, 100, 200, 500, 2000]
+                  .filter((v, i, a) => a.indexOf(v) === i && v > roundedGrandTotal)
+                  .slice(0, 3)
+                  .map((cash) => (
+                    <button
+                      key={cash}
+                      type="button"
+                      className="pos-quick-tender-btn"
+                      onClick={() => {
+                        setTenderedAmount(cash.toString());
+                        setPaymentMode('CASH');
+                        setShowPaymentModal(true);
+                      }}
+                      title={`Tender ₹${cash} note`}
+                    >
+                      ₹{cash}
+                    </button>
+                  ))}
+              </div>
+            )}
+
             <div className="pos-summary-table">
               <div className="pos-summary-row">
-                <span>Items Subtotal:</span>
+                <span>Items Subtotal ({cart.reduce((a, b) => a + b.quantity, 0)} pcs):</span>
                 <span>₹{rawSubtotal.toFixed(2)}</span>
               </div>
               {(itemDiscounts > 0 || overallDiscount > 0) && (
@@ -889,7 +1075,7 @@ export const PosBillingPage: React.FC = () => {
               disabled={cart.length === 0}
               className="pos-checkout-btn"
             >
-              <Banknote size={18} /> Collect Payment & Print Bill
+              <Banknote size={17} /> Collect Payment & Print Bill (F4)
             </button>
           </div>
         </div>

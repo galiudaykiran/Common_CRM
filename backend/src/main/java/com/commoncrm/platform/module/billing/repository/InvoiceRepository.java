@@ -3,6 +3,7 @@ package com.commoncrm.platform.module.billing.repository;
 import com.commoncrm.platform.module.billing.entity.Invoice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,7 +35,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shop.id = :shopId AND i.createdAt >= :since")
     long countShopInvoicesSince(@Param("shopId") Long shopId, @Param("since") Instant since);
 
-    @Query("SELECT i FROM Invoice i WHERE i.shop.id = :shopId AND i.createdAt BETWEEN :start AND :end ORDER BY i.createdAt DESC")
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shop.id = :shopId AND i.invoiceNumber LIKE :pattern")
+    long countShopInvoicesMatching(@Param("shopId") Long shopId, @Param("pattern") String pattern);
+
+    @Query("SELECT i.invoiceNumber FROM Invoice i WHERE i.shop.id = :shopId AND i.invoiceNumber LIKE :pattern ORDER BY i.id DESC")
+    List<String> findRecentInvoiceNumbersMatching(@Param("shopId") Long shopId, @Param("pattern") String pattern, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"items"})
+    @Query("SELECT DISTINCT i FROM Invoice i WHERE i.shop.id = :shopId AND i.createdAt BETWEEN :start AND :end ORDER BY i.createdAt DESC")
     List<Invoice> findByShopIdAndCreatedAtBetween(
             @Param("shopId") Long shopId,
             @Param("start") Instant start,

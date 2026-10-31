@@ -32,7 +32,7 @@ public class TenantController {
     public ResponseEntity<ApiResponse<PageResponse<TenantResponse>>> searchTenants(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         PageResponse<TenantResponse> response = tenantService.searchTenants(search, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Tenants retrieved successfully"));
     }

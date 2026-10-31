@@ -42,7 +42,7 @@ public class ShopExpenseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<ExpenseResponse> response = expenseService.getExpenses(principal, startDate, endDate, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Expenses retrieved successfully"));
     }

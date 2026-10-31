@@ -8,6 +8,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "audit_logs", indexes = {
+        @Index(name = "idx_audit_tenant_created", columnList = "tenant_id, created_at"),
         @Index(name = "idx_audit_actor", columnList = "actor_user_id"),
         @Index(name = "idx_audit_action", columnList = "action"),
         @Index(name = "idx_audit_resource", columnList = "resource_type, resource_id"),

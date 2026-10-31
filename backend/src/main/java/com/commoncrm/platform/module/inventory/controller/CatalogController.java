@@ -79,7 +79,7 @@ public class CatalogController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<ProductResponse> response = productService.searchProducts(principal, search, categoryId, status, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Products retrieved successfully"));
     }

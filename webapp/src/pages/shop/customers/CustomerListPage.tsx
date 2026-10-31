@@ -20,9 +20,12 @@ import {
   ArrowUpRight,
   TrendingUp,
   UserCheck,
+  Printer,
+  Eye,
 } from 'lucide-react';
 import { billingApi } from '../../../api/billingApi';
-import { Customer, CreateCustomerRequest } from '../../../types';
+import { Customer, CreateCustomerRequest, InvoiceResponse, ThermalReceiptResponse } from '../../../types';
+import { ThermalReceiptModal } from '../billing/ThermalReceiptModal';
 import '../billing/billing.css';
 
 export const CustomerListPage: React.FC = () => {
@@ -51,13 +54,44 @@ export const CustomerListPage: React.FC = () => {
     gstin: '',
   });
 
+  // Customer Bills Modal State
+  const [selectedCustomerForBills, setSelectedCustomerForBills] = useState<Customer | null>(null);
+  const [customerInvoices, setCustomerInvoices] = useState<InvoiceResponse[]>([]);
+  const [loadingCustomerInvoices, setLoadingCustomerInvoices] = useState(false);
+  const [thermalReceipt, setThermalReceipt] = useState<ThermalReceiptResponse | null>(null);
+  const [showThermalModal, setShowThermalModal] = useState(false);
+
+  const handleViewCustomerBills = async (c: Customer) => {
+    setSelectedCustomerForBills(c);
+    setLoadingCustomerInvoices(true);
+    try {
+      const res = await billingApi.searchInvoices({ search: c.phone || c.name, page: 0, size: 20 });
+      setCustomerInvoices(res.content || []);
+    } catch (err) {
+      console.error('Failed to load customer bills', err);
+      setCustomerInvoices([]);
+    } finally {
+      setLoadingCustomerInvoices(false);
+    }
+  };
+
+  const handlePrintCustomerSlip = async (invoiceNumber: string) => {
+    try {
+      const receipt = await billingApi.getThermalReceipt(invoiceNumber);
+      setThermalReceipt(receipt);
+      setShowThermalModal(true);
+    } catch (err) {
+      alert('Failed to load receipt: ' + err);
+    }
+  };
+
   const loadCustomers = async (query = searchQuery, pageNum = page) => {
     setLoading(true);
     try {
       const res = await billingApi.searchCustomers({
         search: query.trim() || undefined,
         page: pageNum,
-        size: 15,
+        size: 10,
       });
       setCustomers(res.content || []);
       setTotalPages(res.totalPages || 1);
@@ -477,19 +511,23 @@ export const CustomerListPage: React.FC = () => {
                       <td style={{ padding: '0.95rem 1.25rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                           <button
-                            onClick={() => navigate(`/shop/invoices?search=${encodeURIComponent(c.phone)}`)}
+                            onClick={() => handleViewCustomerBills(c)}
                             className="btn btn-secondary btn-sm"
                             style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            title="View past invoices"
+                            title={`View bills for ${c.name}`}
                           >
                             <FileText size={13} />
                             <span>Bills</span>
                           </button>
                           <button
-                            onClick={() => navigate(`/shop/pos`)}
+                            onClick={() =>
+                              navigate(
+                                `/shop/pos?customerPhone=${encodeURIComponent(c.phone)}&customerName=${encodeURIComponent(c.name)}`
+                              )
+                            }
                             className="btn btn-primary btn-sm"
                             style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            title="Create new POS invoice"
+                            title={`Create new POS bill for ${c.name}`}
                           >
                             <ShoppingCart size={13} />
                             <span>+ Bill</span>
@@ -764,6 +802,233 @@ export const CustomerListPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          CUSTOMER BILLS MODAL (SHOWS ONLY PARTICULAR CUSTOMER'S BILLS)
+          ===================================================================== */}
+      {selectedCustomerForBills && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            padding: '1rem',
+          }}
+          onClick={() => setSelectedCustomerForBills(null)}
+        >
+          <div
+            style={{
+              width: '750px',
+              maxWidth: '96vw',
+              maxHeight: '85vh',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--bg-secondary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    color: 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                    Invoices &amp; Bills: {selectedCustomerForBills.name}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    Phone: {selectedCustomerForBills.phone} • Lifetime Spent: ₹{(Number(selectedCustomerForBills.totalSpent) || 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCustomerForBills(null)}
+                className="btn-icon"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Invoices List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+              {loadingCustomerInvoices ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div className="spinner" style={{ margin: '0 auto 0.75rem' }} />
+                  Loading invoices for this customer...
+                </div>
+              ) : customerInvoices.length === 0 ? (
+                <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <FileText size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.3 }} />
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>No Bills Found</div>
+                  <p style={{ fontSize: '0.78rem', margin: '4px 0 1rem' }}>
+                    There are no recorded bills for {selectedCustomerForBills.name} ({selectedCustomerForBills.phone}) yet.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSelectedCustomerForBills(null);
+                      navigate('/shop/pos');
+                    }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <ShoppingCart size={13} style={{ marginRight: '4px' }} />
+                    + Create Bill at POS
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {customerInvoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace" }}>
+                            {inv.invoiceNumber}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: inv.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                              color: inv.status === 'COMPLETED' ? '#10b981' : '#ef4444',
+                            }}
+                          >
+                            {inv.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          {inv.createdAt ? new Date(inv.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                          {' • '}
+                          <span>Cashier: {inv.cashierName || 'Staff'}</span>
+                          {' • '}
+                          <span>Method: <strong>{inv.primaryPaymentMode || 'CASH'}</strong></span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                            ₹{Number(inv.grandTotal).toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            Items: {inv.items?.length || 1}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handlePrintCustomerSlip(inv.invoiceNumber)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px' }}
+                          title="Print Thermal Slip"
+                        >
+                          <Printer size={14} />
+                          <span>Receipt</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '0.85rem 1.5rem',
+                borderTop: '1px solid var(--border-subtle)',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <button
+                onClick={() => {
+                  const phone = selectedCustomerForBills.phone;
+                  setSelectedCustomerForBills(null);
+                  navigate(`/shop/invoices?search=${encodeURIComponent(phone)}`);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontWeight: 700 }}
+              >
+                Open in Full Invoices Ledger &rarr;
+              </button>
+              <button
+                onClick={() => setSelectedCustomerForBills(null)}
+                className="btn btn-secondary btn-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thermal Receipt Print Modal */}
+      <ThermalReceiptModal
+        isOpen={showThermalModal}
+        receipt={thermalReceipt}
+        onClose={() => setShowThermalModal(false)}
+      />
     </div>
   );
 };

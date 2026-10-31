@@ -34,7 +34,7 @@ export const AppLayout: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', overflowX: 'hidden', maxWidth: '100vw' }}>
       {/* Sidebar */}
       <aside
         style={{
@@ -185,7 +185,7 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* Main Container */}
-      <div style={{ marginLeft: 'var(--sidebar-width)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ marginLeft: 'var(--sidebar-width)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden' }}>
         {/* Top Header */}
         <header
           style={{
@@ -213,6 +213,23 @@ export const AppLayout: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <NavLink
+              to="/shop/dashboard"
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '6px 12px',
+                textDecoration: 'none',
+              }}
+            >
+              <Store size={15} color="var(--accent-primary)" />
+              <span>Store Operations</span>
+              <ExternalLink size={12} style={{ opacity: 0.7 }} />
+            </NavLink>
+
             <button
               onClick={toggleTheme}
               className="btn-icon"
@@ -229,11 +246,38 @@ export const AppLayout: React.FC = () => {
             >
               {theme === 'dark' ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="#6366f1" />}
             </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px', borderLeft: '1px solid var(--border-subtle)' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-gradient)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {user?.fullName?.charAt(0) || user?.username?.charAt(0) || 'A'}
+              </div>
+              <div style={{ lineHeight: 1.2 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {user?.fullName || user?.username}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  {user?.roles?.[0] || 'ADMIN'}
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 
         {/* View Content */}
-        <main style={{ padding: '2rem', flex: 1, minWidth: 0 }}>
+        <main style={{ padding: '2rem', flex: 1, minWidth: 0, overflowX: 'hidden' }}>
           <Outlet />
         </main>
       </div>

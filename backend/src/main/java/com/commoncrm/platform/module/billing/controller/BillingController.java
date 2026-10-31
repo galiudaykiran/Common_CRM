@@ -37,7 +37,7 @@ public class BillingController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "15") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<InvoiceResponse> response = billingService.searchInvoices(principal, search, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Invoices retrieved"));
     }

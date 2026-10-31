@@ -121,6 +121,12 @@ public class ShopOwnerService {
     }
 
     @Transactional(readOnly = true)
+    public List<com.commoncrm.platform.common.audit.dto.AuditLogResponse> getStoreAuditLogs(UserPrincipal principal) {
+        Shop shop = shopContextService.requireCurrentShop(principal);
+        return auditService.getAllActivityForTenant(shop.getTenant().getId());
+    }
+
+    @Transactional(readOnly = true)
     public ShopDetailResponse getProfile(UserPrincipal principal) {
         Shop shop = shopContextService.requireCurrentShop(principal);
         ShopConfiguration config = shopConfigurationRepository.findByShopId(shop.getId()).orElse(null);

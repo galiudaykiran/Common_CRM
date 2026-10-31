@@ -36,7 +36,7 @@ public class NotificationScheduleController {
     public ResponseEntity<ApiResponse<PageResponse<ScheduleResponse>>> getSchedules(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "15") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<ScheduleResponse> response = scheduleService.getSchedules(principal, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Scheduled notifications"));
     }
@@ -67,12 +67,21 @@ public class NotificationScheduleController {
         return ResponseEntity.ok(ApiResponse.success(count, "Dispatched " + count + " due customer notifications"));
     }
 
+    @PostMapping("/schedules/{id}/send-now")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'STORE_MANAGER', 'CASHIER', 'SALES_ASSOCIATE', 'SHOP_EMPLOYEE')")
+    public ResponseEntity<ApiResponse<DeliveryLogResponse>> sendScheduleNow(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        DeliveryLogResponse log = scheduleService.sendScheduleNow(principal, id);
+        return ResponseEntity.ok(ApiResponse.success(log, "Dispatched notification to " + log.getRecipientPhone()));
+    }
+
     @GetMapping("/logs")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'STORE_MANAGER', 'CASHIER', 'SALES_ASSOCIATE', 'SHOP_EMPLOYEE')")
     public ResponseEntity<ApiResponse<PageResponse<DeliveryLogResponse>>> getDeliveryLogs(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<DeliveryLogResponse> response = scheduleService.getDeliveryLogs(principal, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Notification delivery logs"));
     }

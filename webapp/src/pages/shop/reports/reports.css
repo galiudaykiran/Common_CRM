@@ -713,9 +713,17 @@
   gap: 4px;
 }
 
-.growth-badge-illustration {
-  font-size: 2.2rem;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+.growth-badge-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  flex-shrink: 0;
 }
 
 /* Sparklines inside 4 KPI cards */

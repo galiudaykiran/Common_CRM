@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Boxes,
   TrendingUp,
@@ -13,7 +13,9 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronRight,
+  ChevronLeft,
   Search,
+  ExternalLink,
 } from 'lucide-react';
 import { inventoryApi } from '../../../api/inventoryApi';
 import {
@@ -24,19 +26,28 @@ import {
 
 export const InventoryStockPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [ledger, setLedger] = useState<InventoryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ledgerSearch, setLedgerSearch] = useState('');
+  const [ledgerSearch, setLedgerSearch] = useState(urlSearch);
 
-  const fetchData = useCallback(async () => {
+  // Pagination for stock audit ledger: default page 0, size 10
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerTotalPages, setLedgerTotalPages] = useState(1);
+  const [ledgerTotalElements, setLedgerTotalElements] = useState(0);
+  const ledgerSize = 10;
+
+  const fetchData = useCallback(async (targetPage = ledgerPage) => {
     setLoading(true);
     try {
       const [sumRes, lowRes, ledgerRes] = await Promise.allSettled([
         inventoryApi.getSummary(),
         inventoryApi.getLowStockAlerts(),
-        inventoryApi.getGlobalLedger({ page: 0, size: 50 }),
+        inventoryApi.getGlobalLedger({ page: targetPage, size: ledgerSize }),
       ]);
       if (sumRes.status === 'fulfilled') {
         setSummary(sumRes.value);
@@ -50,6 +61,8 @@ export const InventoryStockPage: React.FC = () => {
       }
       if (ledgerRes.status === 'fulfilled') {
         setLedger(ledgerRes.value.content);
+        setLedgerTotalPages(ledgerRes.value.totalPages || 1);
+        setLedgerTotalElements(ledgerRes.value.totalElements || 0);
       } else {
         console.error('Failed to load stock ledger', ledgerRes.reason);
       }
@@ -58,11 +71,11 @@ export const InventoryStockPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ledgerPage]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(ledgerPage);
+  }, [ledgerPage]);
 
   const filteredLedger = ledger.filter((tx) => {
     if (!ledgerSearch) return true;
@@ -100,7 +113,7 @@ export const InventoryStockPage: React.FC = () => {
             <Plus size={16} /> Manage Catalog
           </button>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={loading}
             className="btn btn-primary"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
@@ -403,7 +416,13 @@ export const InventoryStockPage: React.FC = () => {
                         {new Date(tx.createdAt).toLocaleString()}
                       </td>
                       <td style={{ padding: '14px 18px' }}>
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{tx.productName}</div>
+                        <div
+                          onClick={() => navigate(`/shop/products?search=${encodeURIComponent(tx.productName)}`)}
+                          style={{ fontWeight: 600, fontSize: '13px', color: 'var(--accent-primary)', cursor: 'pointer' }}
+                          title="View product in catalog"
+                        >
+                          {tx.productName} ↗
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{tx.sku}</div>
                       </td>
                       <td style={{ padding: '14px 18px' }}>
@@ -422,7 +441,23 @@ export const InventoryStockPage: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                        {tx.referenceId || '—'}
+                        {tx.referenceId ? (
+                          <span
+                            onClick={() => navigate(`/shop/invoices?search=${encodeURIComponent(tx.referenceId)}`)}
+                            style={{
+                              color: 'var(--accent-primary)',
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              textDecoration: 'underline',
+                              textUnderlineOffset: '3px',
+                            }}
+                            title="Trace Bill / Transaction"
+                          >
+                            {tx.referenceId} ↗
+                          </span>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td style={{ padding: '14px 18px' }}>
                         <span
@@ -453,6 +488,59 @@ export const InventoryStockPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Ledger Pagination Footer (Page 0, Size 10) */}
+        <div
+          style={{
+            padding: '12px 18px',
+            borderTop: '1px solid var(--border-subtle)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            background: 'var(--bg-tertiary)',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <div>
+            Showing <strong>{ledger.length}</strong> of <strong>{ledgerTotalElements}</strong> ledger movements (Page {ledgerPage + 1} of {ledgerTotalPages})
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              disabled={ledgerPage === 0}
+              onClick={() => setLedgerPage((p) => Math.max(0, p - 1))}
+              className="btn btn-outline"
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <ChevronLeft size={13} /> Prev
+            </button>
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', padding: '0 4px' }}>
+              {ledgerPage + 1} / {ledgerTotalPages}
+            </span>
+            <button
+              disabled={ledgerPage >= ledgerTotalPages - 1}
+              onClick={() => setLedgerPage((p) => Math.min(ledgerTotalPages - 1, p + 1))}
+              className="btn btn-outline"
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              Next <ChevronRight size={13} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

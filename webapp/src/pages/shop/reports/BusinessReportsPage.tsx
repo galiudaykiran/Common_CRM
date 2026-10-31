@@ -28,7 +28,13 @@ import {
   Coins,
   Wallet,
   ArrowRight,
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  ShoppingCart,
+  ArrowUpDown,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../../../api/reportsApi';
 import {
   FinancialSummary,
@@ -43,7 +49,7 @@ import {
 import { StoreExpensesModal } from './StoreExpensesModal';
 import './reports.css';
 
-type DatePreset = 'TODAY' | 'WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'QUARTER' | 'CUSTOM';
+type DatePreset = 'TODAY' | 'WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'QUARTER' | 'YEAR' | 'CUSTOM';
 type ActiveTab = 'OVERVIEW' | 'EXPENSES' | 'TAX';
 
 interface BusinessReportsPageProps {
@@ -65,9 +71,14 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
   const [slowStock, setSlowStock] = useState<SlowMovingStockStat[]>([]);
   const [taxSummary, setTaxSummary] = useState<TaxGstSummary | null>(null);
 
-  // Expenses Tab Data from Backend
+  // Expenses Tab Data from Backend & Pagination (Default Page 0, Size 10)
+  const navigate = useNavigate();
   const [expenses, setExpenses] = useState<ShopExpense[]>([]);
   const [expenseBreakdown, setExpenseBreakdown] = useState<CategoryExpenseBreakdown[]>([]);
+  const [expensePage, setExpensePage] = useState(0);
+  const [expenseTotalPages, setExpenseTotalPages] = useState(1);
+  const [expenseTotalElements, setExpenseTotalElements] = useState(0);
+  const expenseSize = 10;
 
   // Modal & Toast
   const [showExpenseModal, setShowExpenseModal] = useState(autoOpenExpenses);
@@ -88,7 +99,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
       end = today;
     } else if (p === 'WEEK') {
       start = new Date(today);
-      start.setDate(today.getDate() - 7);
+      start.setDate(today.getDate() - 6);
       end = today;
     } else if (p === 'THIS_MONTH') {
       start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -97,8 +108,10 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       end = new Date(today.getFullYear(), today.getMonth(), 0);
     } else if (p === 'QUARTER') {
-      start = new Date(today);
-      start.setDate(today.getDate() - 90);
+      start = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      end = today;
+    } else if (p === 'YEAR') {
+      start = new Date(today.getFullYear(), 0, 1);
       end = today;
     }
 
@@ -140,18 +153,26 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
     }
   };
 
-  const loadExpensesData = async () => {
+  const loadExpensesData = async (targetPage = expensePage) => {
     try {
       const [expList, breakdown] = await Promise.all([
-        reportsApi.getExpenses({ startDate, endDate, page: 0, size: 50 }),
+        reportsApi.getExpenses({ startDate, endDate, page: targetPage, size: expenseSize }),
         reportsApi.getExpenseCategoryBreakdown({ startDate, endDate }),
       ]);
       setExpenses(expList.content || []);
+      setExpenseTotalPages(expList.totalPages || 1);
+      setExpenseTotalElements(expList.totalElements || 0);
       setExpenseBreakdown(breakdown || []);
     } catch (err) {
       console.error('Failed to load expenses data from backend', err);
     }
   };
+
+  useEffect(() => {
+    if (startDate && endDate) {
+      loadExpensesData(expensePage);
+    }
+  }, [expensePage]);
 
   const handleDeleteExpense = async (id: number) => {
     if (!window.confirm('Delete this expense record? This will update your net profit instantly.')) {
@@ -231,11 +252,101 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
   );
 
   // Total collections calculation for tender
-  const totalCollectionsAmount = paymentModes.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0);
-  const totalCollectionsBills = paymentModes.reduce((sum, p) => sum + (Number(p.transactionCount) || 0), 0);
+  const totalCollectionsAmount = paymentModes.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0) || Number(summary?.netRevenue || 0);
+  const totalCollectionsBills = paymentModes.reduce((sum, p) => sum + (Number(p.transactionCount) || 0), 0) || summary?.totalInvoicesCount || 0;
 
-  // Fallback / default products icons
-  const productThumbnails = ['👟', '🧸', '🎒', '🧣', '🥋'];
+  // Full Roster of Payment Tenders for Clear Display
+  const standardTenders = [
+    { mode: 'Cash', color: '#6366f1', key: 'CASH' },
+    { mode: 'Card', color: '#0284c7', key: 'CARD' },
+    { mode: 'UPI', color: '#10b981', key: 'UPI' },
+    { mode: 'Wallet', color: '#f59e0b', key: 'WALLET' },
+    { mode: 'Others', color: '#ec4899', key: 'OTHERS' },
+  ];
+
+  const fullTenderList = standardTenders.map((st) => {
+    const match = paymentModes.find((p) => p.paymentMode.toUpperCase() === st.key);
+    if (match) {
+      return {
+        ...st,
+        amount: Number(match.totalAmount) || 0,
+        count: match.transactionCount,
+        percentage: match.percentage,
+      };
+    }
+    // If no backend record exists for cash but summary has net revenue
+    if (st.key === 'CASH' && paymentModes.length === 0 && (summary?.netRevenue || 0) > 0) {
+      return {
+        ...st,
+        amount: summary?.netRevenue || 0,
+        count: summary?.totalInvoicesCount || 0,
+        percentage: 100,
+      };
+    }
+    return {
+      ...st,
+      amount: 0,
+      count: 0,
+      percentage: 0,
+    };
+  });
+
+  // Format milestone date or timing slot (e.g. "08:00" -> "8 AM", "2026-10-31" -> "31 Oct", "Aug 2026" -> "Aug")
+  const formatDayLabel = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr.includes(':')) {
+      const hr = parseInt(dateStr.split(':')[0], 10);
+      const ampm = hr >= 12 ? 'PM' : 'AM';
+      const formattedHr = hr % 12 === 0 ? 12 : hr % 12;
+      return `${formattedHr} ${ampm}`;
+    }
+    if (dateStr.includes(' ')) {
+      return dateStr.split(' ')[0];
+    }
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        return `${d} ${months[m] || ''}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Smooth spline curve generator for multiple line identification
+  const getSmoothSvgPath = (coords: Array<{ x: number; y: number }>) => {
+    if (coords.length === 0) return '';
+    if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+    let path = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p0 = coords[i === 0 ? 0 : i - 1];
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+      const p3 = coords[i + 2 < coords.length ? i + 2 : coords.length - 1];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return path;
+  };
+
+  const getChartModeLabel = () => {
+    if (preset === 'TODAY') return 'Today (Hourly 08:00 - 22:00)';
+    if (preset === 'WEEK') return '7 Individual Days';
+    if (preset === 'THIS_MONTH') return 'This Month (Daily)';
+    if (preset === 'LAST_MONTH') return 'Last Month (Daily)';
+    if (preset === 'QUARTER') return 'Quarterly (Every Month)';
+    if (preset === 'YEAR') return 'Yearly (All 12 Months)';
+    return 'Custom Date Window';
+  };
 
   return (
     <div className="reports-container">
@@ -280,8 +391,8 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
               </span>
             </div>
           </div>
-          <div className="growth-badge-illustration">
-            🛍️
+          <div className="growth-badge-icon-box" title="Period Growth Analytics">
+            <TrendingUp size={20} />
           </div>
         </div>
       </div>
@@ -318,6 +429,12 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
             className={`reports-seg-btn ${preset === 'QUARTER' ? 'active' : ''}`}
           >
             Quarter
+          </button>
+          <button
+            onClick={() => setPreset('YEAR')}
+            className={`reports-seg-btn ${preset === 'YEAR' ? 'active' : ''}`}
+          >
+            Year
           </button>
           <button
             onClick={() => {
@@ -398,7 +515,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <MoreVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div className="reports-kpi-val">₹{fmt(summary?.netRevenue)}</div>
                 <span className="reports-pill-badge pill-success">
                   <TrendingUp size={11} /> 12.5%
@@ -438,7 +555,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <MoreVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div className="reports-kpi-val" style={{ color: '#0284c7' }}>₹{fmt(summary?.grossProfit)}</div>
                 <span className="reports-pill-badge pill-info">
                   <TrendingUp size={11} /> 18.2%
@@ -477,7 +594,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <MoreVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div className="reports-kpi-val" style={{ color: '#d97706' }}>₹{fmt(summary?.totalOutflows)}</div>
                 <span className="reports-pill-badge pill-warning">
                   <TrendingDown size={11} /> 5.8%
@@ -512,7 +629,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
               </div>
             </div>
 
-            {/* Card 4: NET LOSS / NET PROFIT */}
+            {/* Card 4: NET LOSS (DEFICIT) / NET PROFIT */}
             <div className={`reports-kpi-card ${isProfitable ? 'hero-profit' : 'hero-loss'}`}>
               <div className="reports-kpi-top">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -532,9 +649,9 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <MoreVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <div className="reports-kpi-val" style={{ color: isProfitable ? '#059669' : '#dc2626' }}>
-                  ₹{fmt(summary?.netProfit)}
+                  {isProfitable ? '+' : ''}₹{fmt(summary?.netProfit)}
                 </div>
                 <span className={`reports-pill-badge ${isProfitable ? 'pill-success' : 'pill-danger'}`}>
                   {isProfitable ? '↑' : '↓'} {Math.abs(summary?.netMarginPercent || 1430.9)}%
@@ -574,11 +691,11 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                     <span>Sales &amp; Profit Trend</span>
                   </h3>
                   <div className="reports-card-subtitle">
-                    Daily revenue, profit and margins across {startDate} to {endDate}
+                    Revenue and gross profit trajectory across {startDate} to {endDate}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.74rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.74rem', flexWrap: 'wrap' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#6366f1' }}></span>
                     Revenue
@@ -588,74 +705,164 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                     Gross Profit
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a855f7' }}></span>
-                    Margin (%)
+                    <span style={{ width: '12px', height: '2.5px', borderRadius: '2px', background: '#f59e0b' }}></span>
+                    Growth Curve
                   </span>
-                  <span className="reports-pill-badge pill-info">Daily ∨</span>
+                  <span className="reports-pill-badge pill-info">{getChartModeLabel()}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', height: '180px', alignItems: 'flex-end', paddingTop: '15px' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', height: '185px', alignItems: 'flex-end', paddingTop: '15px' }}>
                 {/* Left Axis: Amount */}
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '140px', fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'right', paddingRight: '6px', borderRight: '1px solid var(--border-subtle)', minWidth: '36px' }}>
-                  <span>2.5K</span>
-                  <span>2K</span>
-                  <span>1.5K</span>
-                  <span>1K</span>
-                  <span>500</span>
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '135px', fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'right', paddingRight: '6px', borderRight: '1px solid var(--border-subtle)', minWidth: '40px' }}>
+                  <span>{maxTrendVal >= 1000 ? `${(maxTrendVal / 1000).toFixed(1)}k` : Math.round(maxTrendVal)}</span>
+                  <span>{maxTrendVal * 0.75 >= 1000 ? `${((maxTrendVal * 0.75) / 1000).toFixed(1)}k` : Math.round(maxTrendVal * 0.75)}</span>
+                  <span>{maxTrendVal * 0.5 >= 1000 ? `${((maxTrendVal * 0.5) / 1000).toFixed(1)}k` : Math.round(maxTrendVal * 0.5)}</span>
+                  <span>{maxTrendVal * 0.25 >= 1000 ? `${((maxTrendVal * 0.25) / 1000).toFixed(1)}k` : Math.round(maxTrendVal * 0.25)}</span>
                   <span>0</span>
                 </div>
 
-                {/* Bars Area */}
-                <div className="reports-chart-wrap" style={{ flex: 1 }}>
+                {/* Bars Area with Smooth Curve Line Overlay */}
+                <div className="reports-chart-wrap" style={{ flex: 1, position: 'relative' }}>
                   {trends.length === 0 ? (
                     <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      No sales recorded for this date window
+                      No transactions recorded for this period
                     </div>
                   ) : (
-                    <div className="reports-chart-bars" style={{ height: '140px', borderBottom: 'none' }}>
-                      {trends.map((t, idx) => {
-                        const revVal = Number(t.revenue) || 0;
-                        const profVal = Number(t.grossProfit) || 0;
-                        const revHeight = Math.max(Math.round((revVal / maxTrendVal) * 120), revVal > 0 ? 8 : 4);
-                        const profHeight = Math.max(Math.round((profVal / maxTrendVal) * 120), profVal > 0 ? 8 : 4);
-                        const marginPct = revVal > 0 ? Math.round((profVal / revVal) * 100) : 0;
+                    <>
+                      {/* SVG Multi-Line Spline Growth Curve Overlay */}
+                      <svg
+                        viewBox="0 0 1000 135"
+                        preserveAspectRatio="none"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '135px',
+                          pointerEvents: 'none',
+                          zIndex: 10,
+                          overflow: 'visible',
+                        }}
+                      >
+                        <defs>
+                          <linearGradient id="curveAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.22" />
+                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        {(() => {
+                          const n = trends.length;
+                          if (n === 0) return null;
+                          const revPoints = trends.map((t, idx) => {
+                            const rev = Number(t.revenue) || 0;
+                            const x = n === 1 ? 500 : ((idx + 0.5) / n) * 1000;
+                            const y = 135 - ((rev / maxTrendVal) * 115) - 8;
+                            return { x, y: Math.max(8, Math.min(130, y)) };
+                          });
 
-                        return (
-                          <div key={t.dateFormatted || idx} className="reports-chart-col">
-                            {/* Hover Tooltip */}
-                            <div className="reports-bar-tooltip">
-                              <div className="tooltip-date-header">📅 {t.dateFormatted}</div>
-                              <div className="tooltip-stat-row">
-                                <span className="tooltip-stat-label">Revenue:</span>
-                                <span className="tooltip-stat-val" style={{ color: '#818cf8' }}>₹{fmt(revVal)}</span>
+                          const curvePath = getSmoothSvgPath(revPoints);
+                          if (!curvePath) return null;
+
+                          const areaPath = `${curvePath} L ${revPoints[revPoints.length - 1].x} 135 L ${revPoints[0].x} 135 Z`;
+
+                          return (
+                            <>
+                              <path d={areaPath} fill="url(#curveAreaGrad)" />
+                              <path d={curvePath} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+                              {revPoints.map((pt, i) => (
+                                <circle
+                                  key={i}
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r="3.5"
+                                  fill="#fff"
+                                  stroke="#f59e0b"
+                                  strokeWidth="2.2"
+                                />
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </svg>
+
+                      {/* Bar Columns */}
+                      <div className="reports-chart-bars" style={{ height: '135px', borderBottom: 'none' }}>
+                        {trends.map((t, idx) => {
+                          const revVal = Number(t.revenue) || 0;
+                          const profVal = Number(t.grossProfit) || 0;
+                          const revHeight = Math.max(Math.round((revVal / maxTrendVal) * 115), revVal > 0 ? 8 : 4);
+                          const profHeight = Math.max(Math.round((profVal / maxTrendVal) * 115), profVal > 0 ? 8 : 4);
+                          const marginPct = revVal > 0 ? Math.round((profVal / revVal) * 100) : 0;
+
+                          // Spaced timeline label to prevent overlapping on wide ranges
+                          const showLabel = trends.length <= 12 || idx % Math.ceil(trends.length / 8) === 0 || idx === trends.length - 1;
+
+                          return (
+                            <div key={t.dateFormatted || idx} className="reports-chart-col">
+                              {/* Hover Tooltip */}
+                              <div className="reports-bar-tooltip">
+                                <div className="tooltip-date-header">📅 {t.dateFormatted}</div>
+                                <div className="tooltip-stat-row">
+                                  <span className="tooltip-stat-label">Revenue:</span>
+                                  <span className="tooltip-stat-val" style={{ color: '#818cf8' }}>₹{fmt(revVal)}</span>
+                                </div>
+                                <div className="tooltip-stat-row">
+                                  <span className="tooltip-stat-label">Gross Profit:</span>
+                                  <span className="tooltip-stat-val" style={{ color: '#10b981' }}>+₹{fmt(profVal)}</span>
+                                </div>
+                                <div className="tooltip-stat-row">
+                                  <span className="tooltip-stat-label">Margin:</span>
+                                  <span className="tooltip-stat-val" style={{ color: '#f59e0b' }}>{marginPct}%</span>
+                                </div>
+                                {t.billCount !== undefined && (
+                                  <div className="tooltip-stat-row" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '2px', marginTop: '2px' }}>
+                                    <span>Bills Count:</span>
+                                    <span>{t.billCount}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="tooltip-stat-row">
-                                <span className="tooltip-stat-label">Gross Profit:</span>
-                                <span className="tooltip-stat-val" style={{ color: '#10b981' }}>+₹{fmt(profVal)}</span>
+
+                              <div className="reports-chart-pair">
+                                <div
+                                  className="bar-rev"
+                                  style={{
+                                    height: `${revHeight}px`,
+                                    background: 'linear-gradient(180deg, #818cf8 0%, #6366f1 100%)',
+                                    borderRadius: '3px 3px 0 0',
+                                  }}
+                                  title={`Revenue: ₹${fmt(revVal)}`}
+                                />
+                                <div
+                                  className="bar-prof"
+                                  style={{
+                                    height: `${profHeight}px`,
+                                    background: 'linear-gradient(180deg, #34d399 0%, #10b981 100%)',
+                                    borderRadius: '3px 3px 0 0',
+                                  }}
+                                  title={`Gross Profit: ₹${fmt(profVal)}`}
+                                />
                               </div>
-                              <div className="tooltip-stat-row">
-                                <span className="tooltip-stat-label">Margin:</span>
-                                <span className="tooltip-stat-val" style={{ color: '#a855f7' }}>{marginPct}%</span>
+
+                              <div style={{ height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {showLabel ? (
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                    {formatDayLabel(t.dateFormatted)}
+                                  </span>
+                                ) : (
+                                  <span style={{ width: '2px', height: '4px', background: 'var(--border-subtle)' }} />
+                                )}
                               </div>
                             </div>
-
-                            <div className="reports-chart-pair">
-                              <div className="bar-rev" style={{ height: `${revHeight}px`, background: '#6366f1' }} />
-                              <div className="bar-prof" style={{ height: `${profHeight}px`, background: '#10b981' }} />
-                            </div>
-                            <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '4px', whiteSpace: 'nowrap' }}>
-                              {t.dateFormatted ? t.dateFormatted.slice(8) : idx + 1}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
 
                 {/* Right Axis: Margin % */}
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '140px', fontSize: '0.68rem', color: '#a855f7', textAlign: 'left', paddingLeft: '6px', borderLeft: '1px solid var(--border-subtle)', minWidth: '36px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '135px', fontSize: '0.68rem', color: '#f59e0b', textAlign: 'left', paddingLeft: '6px', borderLeft: '1px solid var(--border-subtle)', minWidth: '36px' }}>
                   <span>100%</span>
                   <span>80%</span>
                   <span>60%</span>
@@ -699,80 +906,44 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                     />
                   </svg>
                   <div className="tender-donut-center">
-                    <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                      ₹{fmt(totalCollectionsAmount || summary?.netRevenue)}
+                    <div style={{ fontSize: '0.98rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                      ₹{fmt(totalCollectionsAmount)}
                     </div>
                     <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                       Total Collections
                     </div>
                     <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-                      {totalCollectionsBills || summary?.totalInvoicesCount || 0} bills
+                      {totalCollectionsBills} bills
                     </div>
                   </div>
                 </div>
 
-                {/* Legend List */}
+                {/* Legend List (All 5 Standard Modes for Comprehensive Clarity - Interlinked to Invoices) */}
                 <div className="tender-legend-list">
-                  {paymentModes.length > 0 ? (
-                    paymentModes.map((pm) => (
-                      <div key={pm.paymentMode} className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{pm.paymentMode}</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          ₹{fmt(pm.totalAmount)} ({pm.percentage}%)
-                        </span>
+                  {fullTenderList.map((t) => (
+                    <div
+                      key={t.mode}
+                      className="tender-legend-row"
+                      onClick={() => navigate(`/shop/invoices?search=${encodeURIComponent(t.mode)}`)}
+                      style={{ cursor: 'pointer' }}
+                      title={`Filter all ${t.mode} invoices in Billing History`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.color }} />
+                        <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{t.mode} ↗</span>
                       </div>
-                    ))
-                  ) : (
-                    <>
-                      <div className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Cash</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          ₹{fmt(summary?.netRevenue || 2556)} (100%)
-                        </span>
-                      </div>
-                      <div className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284c7' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Card</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>₹0.00 (0%)</span>
-                      </div>
-                      <div className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>UPI</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>₹0.00 (0%)</span>
-                      </div>
-                      <div className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Wallet</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>₹0.00 (0%)</span>
-                      </div>
-                      <div className="tender-legend-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ec4899' }} />
-                          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Others</span>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>₹0.00 (0%)</span>
-                      </div>
-                    </>
-                  )}
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                        ₹{fmt(t.amount)} <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 500 }}>({t.percentage}%)</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* Bottom Summary Pill */}
               <div className="tender-summary-pill">
-                <span>💵 CASH ({summary?.totalInvoicesCount || 4} bills)</span>
-                <span>₹{fmt(totalCollectionsAmount || summary?.netRevenue || 2556)} (100%)</span>
+                <span>💵 CASH ({totalCollectionsBills} bills)</span>
+                <span>₹{fmt(totalCollectionsAmount)} (100%)</span>
               </div>
             </div>
           </div>
@@ -800,7 +971,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <table className="reports-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '32px' }}>#</th>
+                      <th style={{ width: '28px' }}>#</th>
                       <th>PRODUCT</th>
                       <th>QTY</th>
                       <th>REVENUE</th>
@@ -825,9 +996,17 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '1.2rem' }}>{productThumbnails[idx % productThumbnails.length]}</span>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', flexShrink: 0 }}>
+                                <Package size={14} />
+                              </div>
                               <div>
-                                <div style={{ fontWeight: 700 }}>{p.productName}</div>
+                                <div
+                                  onClick={() => navigate(`/shop/products?search=${encodeURIComponent(p.productName)}`)}
+                                  style={{ fontWeight: 700, color: 'var(--accent-primary)', cursor: 'pointer' }}
+                                  title="View product in catalog"
+                                >
+                                  {p.productName} ↗
+                                </div>
                                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>SKU: {p.sku}</div>
                               </div>
                             </div>
@@ -836,7 +1015,25 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                           <td style={{ fontWeight: 700 }}>₹{fmt(p.totalRevenue)}</td>
                           <td style={{ fontWeight: 800, color: '#059669' }}>+₹{fmt(p.grossProfit)}</td>
                           <td>
-                            <span className="reports-pill-badge pill-success">{p.marginPercent}%</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="reports-pill-badge pill-success">{p.marginPercent}%</span>
+                              <button
+                                onClick={() => navigate(`/shop/pos?barcode=${encodeURIComponent(p.sku || '')}`)}
+                                className="btn btn-outline"
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '10px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  color: '#8b5cf6',
+                                  cursor: 'pointer',
+                                }}
+                                title="Sell at POS"
+                              >
+                                <ShoppingCart size={11} /> POS
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -865,7 +1062,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                 <table className="reports-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '32px' }}>#</th>
+                      <th style={{ width: '28px' }}>#</th>
                       <th>PRODUCT / CATEGORY</th>
                       <th>IN STOCK</th>
                       <th>UNIT COST</th>
@@ -890,9 +1087,17 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '1.2rem' }}>{productThumbnails[idx % productThumbnails.length]}</span>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+                                <Package size={14} />
+                              </div>
                               <div>
-                                <div style={{ fontWeight: 700 }}>{s.productName}</div>
+                                <div
+                                  onClick={() => navigate(`/shop/products?search=${encodeURIComponent(s.productName)}`)}
+                                  style={{ fontWeight: 700, color: 'var(--accent-primary)', cursor: 'pointer' }}
+                                  title="View product in catalog"
+                                >
+                                  {s.productName} ↗
+                                </div>
                                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{s.categoryName || 'General'}</div>
                               </div>
                             </div>
@@ -900,7 +1105,27 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                           <td style={{ fontWeight: 600 }}>{s.currentStock}</td>
                           <td>₹{fmt(s.unitCost)}</td>
                           <td style={{ fontWeight: 800, color: '#d97706' }}>₹{fmt(s.tiedUpCapital)}</td>
-                          <td style={{ fontWeight: 700, color: '#ef4444' }}>{70 + idx * 12}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 700, color: '#ef4444' }}>{70 + idx * 12}d</span>
+                              <button
+                                onClick={() => navigate(`/shop/inventory?search=${encodeURIComponent(s.productName)}`)}
+                                className="btn btn-outline"
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '10px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  color: '#f59e0b',
+                                  cursor: 'pointer',
+                                }}
+                                title="Audit stock ledger"
+                              >
+                                <ArrowUpDown size={11} /> Stock
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -910,184 +1135,7 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
             </div>
           </div>
 
-          {/* ===================================================================
-              BOTTOM ROW: EXPENSE BREAKDOWN, MONTHLY COMPARISON, KEY INSIGHTS
-              =================================================================== */}
-          <div className="reports-bottom-grid">
-            {/* Widget 1: Expense Breakdown */}
-            <div className="reports-card">
-              <div className="reports-card-header">
-                <div>
-                  <h3 className="reports-card-title">
-                    <Receipt size={17} style={{ color: '#ef4444' }} />
-                    <span>Expense Breakdown</span>
-                  </h3>
-                  <div className="reports-card-subtitle">Category-wise operating expenses</div>
-                </div>
-                <span className="reports-pill-badge pill-info">This Month ∨</span>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.5rem 0' }}>
-                {(() => {
-                  const shrinkage = Number(summary?.inventoryShrinkageLoss) || 0;
-                  const bills = Number(summary?.operatingExpenses) || 0;
-                  const total = shrinkage + bills || 1;
-                  const shrinkPct = Math.round((shrinkage / total) * 1000) / 10;
-                  const billsPct = Math.round((bills / total) * 1000) / 10;
-                  const shrinkStroke = (shrinkPct / 100) * 238;
-                  const billsStroke = (billsPct / 100) * 238;
-
-                  return (
-                    <>
-                      <div style={{ width: '100px', height: '100px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg viewBox="0 0 100 100" width="100%" height="100%">
-                          <circle cx="50" cy="50" r="38" stroke="var(--border-subtle)" strokeWidth="14" fill="none" />
-                          <circle cx="50" cy="50" r="38" stroke="#ef4444" strokeWidth="14" fill="none" strokeDasharray={`${shrinkStroke} 238`} strokeDashoffset="0" transform="rotate(-90 50 50)" />
-                          <circle cx="50" cy="50" r="38" stroke="#f59e0b" strokeWidth="14" fill="none" strokeDasharray={`${billsStroke} 238`} strokeDashoffset={`${-shrinkStroke}`} transform="rotate(-90 50 50)" />
-                        </svg>
-                        <div style={{ position: 'absolute', textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.86rem', fontWeight: 900, color: 'var(--text-primary)' }}>₹{fmt(summary?.totalOutflows)}</div>
-                          <div style={{ fontSize: '0.56rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Expenses</div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444' }} />
-                            Shrinkage
-                          </span>
-                          <span style={{ fontWeight: 700 }}>{shrinkPct}% ₹{fmt(shrinkage)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#f59e0b' }} />
-                            Bills/Utilities
-                          </span>
-                          <span style={{ fontWeight: 700 }}>{billsPct}% ₹{fmt(bills)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#0284c7' }} />
-                            Store Operations
-                          </span>
-                          <span style={{ fontWeight: 700 }}>0.0% ₹0.00</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94a3b8' }} />
-                            Others
-                          </span>
-                          <span style={{ fontWeight: 700 }}>0.0% ₹0.00</span>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Widget 2: Monthly Comparison */}
-            <div className="reports-card">
-              <div className="reports-card-header">
-                <div>
-                  <h3 className="reports-card-title">
-                    <BarChart3 size={17} style={{ color: 'var(--accent-primary)' }} />
-                    <span>Monthly Comparison</span>
-                  </h3>
-                  <div className="reports-card-subtitle">Revenue, Expenses and Profit trend</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '2px', background: '#6366f1' }} /> Rev
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '2px', background: '#f59e0b' }} /> Exp
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '2px', background: '#10b981' }} /> Prof
-                  </span>
-                  <span className="reports-pill-badge pill-info">Last 6 Months ∨</span>
-                </div>
-              </div>
-
-              <div className="monthly-chart-bars">
-                {[
-                  { month: 'May', rev: 12, exp: 8, prof: 4 },
-                  { month: 'Jun', rev: 25, exp: 14, prof: 11 },
-                  { month: 'Jul', rev: 32, exp: 20, prof: 12 },
-                  { month: 'Aug', rev: 22, exp: 16, prof: 6 },
-                  { month: 'Sep', rev: 30, exp: 24, prof: 6 },
-                  { month: 'Oct', rev: 28, exp: 36, prof: 10 },
-                ].map((m) => (
-                  <div key={m.month} className="monthly-month-group">
-                    <div className="monthly-bars-cluster">
-                      <div className="m-bar m-bar-rev" style={{ height: `${m.rev * 2.8}px` }} title={`Revenue: ₹${m.rev}k`} />
-                      <div className="m-bar m-bar-exp" style={{ height: `${m.exp * 2.8}px` }} title={`Expenses: ₹${m.exp}k`} />
-                      <div className="m-bar m-bar-prof" style={{ height: `${m.prof * 2.8}px` }} title={`Profit: ₹${m.prof}k`} />
-                    </div>
-                    <span className="monthly-month-label">{m.month}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Widget 3: Key Insights */}
-            <div className="reports-card">
-              <div className="reports-card-header">
-                <div>
-                  <h3 className="reports-card-title">
-                    <Sparkles size={17} style={{ color: '#fbbf24' }} />
-                    <span>Key Insights</span>
-                  </h3>
-                  <div className="reports-card-subtitle">Your store at a glance</div>
-                </div>
-                <span className="reports-pill-badge pill-info">This Month ∨</span>
-              </div>
-
-              <div className="insights-vertical-list">
-                <div className="insight-card-item">
-                  <div className="insight-icon-bubble" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
-                    <TrendingUp size={14} />
-                  </div>
-                  <div>
-                    <div className="insight-title">Revenue increased by 12.5%</div>
-                    <div className="insight-desc">Compared to previous period</div>
-                  </div>
-                </div>
-
-                <div className="insight-card-item">
-                  <div className="insight-icon-bubble" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
-                    <TrendingDown size={14} />
-                  </div>
-                  <div>
-                    <div className="insight-title">Operating expenses decreased by 5.8%</div>
-                    <div className="insight-desc">Good cost control this month</div>
-                  </div>
-                </div>
-
-                <div className="insight-card-item">
-                  <div className="insight-icon-bubble" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#d97706' }}>
-                    <AlertTriangle size={14} />
-                  </div>
-                  <div>
-                    <div className="insight-title">Net loss increased by 1430.9%</div>
-                    <div className="insight-desc">Revise pricing or reduce shrinkage expenses</div>
-                  </div>
-                </div>
-
-                <div className="insight-card-item">
-                  <div className="insight-icon-bubble" style={{ background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)' }}>
-                    <Package size={14} />
-                  </div>
-                  <div>
-                    <div className="insight-title">{slowStock.length || 4} products are slow moving</div>
-                    <div className="insight-desc">₹{fmt(slowStock.reduce((acc, s) => acc + (Number(s.tiedUpCapital) || 0), 0) || 31400)} capital locked in slow inventory</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </>
       )}
 
@@ -1200,6 +1248,59 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Expenses Pagination Footer (Page 0, Size 10) */}
+            <div
+              style={{
+                padding: '12px 18px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-tertiary)',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <div>
+                Showing <strong>{expenses.length}</strong> of <strong>{expenseTotalElements}</strong> expenses (Page {expensePage + 1} of {expenseTotalPages})
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  disabled={expensePage === 0}
+                  onClick={() => setExpensePage((p) => Math.max(0, p - 1))}
+                  className="btn btn-outline"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <ChevronLeft size={13} /> Prev
+                </button>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)', padding: '0 4px' }}>
+                  {expensePage + 1} / {expenseTotalPages}
+                </span>
+                <button
+                  disabled={expensePage >= expenseTotalPages - 1}
+                  onClick={() => setExpensePage((p) => Math.min(expenseTotalPages - 1, p + 1))}
+                  className="btn btn-outline"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  Next <ChevronRight size={13} />
+                </button>
+              </div>
             </div>
           </div>
         </div>

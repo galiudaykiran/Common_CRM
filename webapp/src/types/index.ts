@@ -524,6 +524,7 @@ export interface CreateInvoicePaymentRequest {
   paymentMode: string;
   amount: number;
   transactionReference?: string;
+  referenceNumber?: string;
   notes?: string;
 }
 
@@ -536,6 +537,7 @@ export interface CreateInvoiceRequest {
   customerAddress?: string;
   invoiceDiscountTotal?: number;
   paymentMode: string;
+  primaryPaymentMode?: string;
   amountPaid: number;
   payments?: CreateInvoicePaymentRequest[];
   notes?: string;

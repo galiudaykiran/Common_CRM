@@ -22,7 +22,9 @@ import {
   ChevronRight,
   Camera,
   Scan,
+  ShoppingCart,
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BarcodeScannerModal } from '../../../components/common/BarcodeScannerModal';
 import { inventoryApi } from '../../../api/inventoryApi';
 import {
@@ -37,6 +39,10 @@ import {
 } from '../../../types';
 
 export const ProductListPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+
   // Data States
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -45,10 +51,10 @@ export const ProductListPage: React.FC = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(0);
-  const pageSize = 15;
+  const pageSize = 10;
 
   // Filters
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [stockLevelFilter, setStockLevelFilter] = useState<'ALL' | 'LOW' | 'OUT' | 'IN'>('ALL');
@@ -981,7 +987,24 @@ export const ProductListPage: React.FC = () => {
 
                       {/* Actions */}
                       <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => navigate(`/shop/pos?barcode=${encodeURIComponent(p.barcode || p.sku)}`)}
+                            title="Sell item directly at POS Counter"
+                            className="btn btn-outline"
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: '#8b5cf6',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <ShoppingCart size={13} /> POS
+                          </button>
+
                           <button
                             onClick={() => handleOpenReceive(p)}
                             title="Inward Goods Receipt"

@@ -34,7 +34,7 @@ public class AuditLogController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) String actorUsername,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         PageResponse<AuditLogResponse> response = auditService.getAuditLogs(action, resourceType, actorUsername, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Audit logs retrieved successfully"));
     }

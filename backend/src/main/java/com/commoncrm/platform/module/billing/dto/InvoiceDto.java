@@ -1,5 +1,6 @@
 package com.commoncrm.platform.module.billing.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -43,6 +44,7 @@ public class InvoiceDto {
         @DecimalMin(value = "0.01", message = "Amount must be greater than zero")
         private BigDecimal amount;
 
+        @JsonAlias({"transactionReference", "referenceNumber"})
         private String referenceNumber;
     }
 
@@ -65,6 +67,7 @@ public class InvoiceDto {
         @Builder.Default
         private List<CreateInvoicePaymentRequest> payments = new ArrayList<>();
 
+        @JsonAlias({"paymentMode", "primaryPaymentMode"})
         @Builder.Default
         private String primaryPaymentMode = "CASH";
 

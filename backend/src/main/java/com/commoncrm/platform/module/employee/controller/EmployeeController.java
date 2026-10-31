@@ -37,7 +37,7 @@ public class EmployeeController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String designation,
-            @PageableDefault(size = 15, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         PageResponse<EmployeeResponse> response = employeeService.getEmployees(principal, search, status, designation, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Staff records retrieved successfully"));
     }

@@ -66,7 +66,7 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<PageResponse<InventoryTransactionResponse>>> getGlobalLedger(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<InventoryTransactionResponse> response = inventoryEngineService.getProductLedger(principal, null, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Store ledger retrieved successfully"));
     }
@@ -77,7 +77,7 @@ public class InventoryController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long productId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         PageResponse<InventoryTransactionResponse> response = inventoryEngineService.getProductLedger(principal, productId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Product ledger retrieved successfully"));
     }

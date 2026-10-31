@@ -37,7 +37,7 @@ public class ShopController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long businessTypeId,
             @RequestParam(required = false) String status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         PageResponse<ShopSummaryResponse> response = shopService.searchShops(search, businessTypeId, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Shops retrieved successfully"));
     }

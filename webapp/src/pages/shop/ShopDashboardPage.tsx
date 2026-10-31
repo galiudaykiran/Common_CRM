@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { shopOwnerApi } from '../../api/shopOwnerApi';
 import { inventoryApi } from '../../api/inventoryApi';
 import { reportsApi } from '../../api/reportsApi';
-import { ShopOwnerDashboard, Category, DailyTrendPoint } from '../../types';
+import { ShopOwnerDashboard, Category, DailyTrendPoint, AuditLogItem } from '../../types';
 import './dashboard.css';
 import {
   ShoppingCart,
@@ -32,6 +32,10 @@ import {
   ExternalLink,
   Receipt,
   UserCheck,
+  Store,
+  Search,
+  X,
+  Filter,
 } from 'lucide-react';
 
 export const ShopDashboardPage: React.FC = () => {
@@ -43,6 +47,27 @@ export const ShopDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Store Audits Modal State
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditLogsList, setAuditLogsList] = useState<AuditLogItem[]>([]);
+  const [loadingAudits, setLoadingAudits] = useState(false);
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('ALL');
+
+  const handleOpenAuditsModal = async () => {
+    setShowAuditModal(true);
+    setLoadingAudits(true);
+    try {
+      const logs = await shopOwnerApi.getStoreAuditLogs();
+      setAuditLogsList(logs || []);
+    } catch (err) {
+      console.error('Failed to load store audit logs', err);
+      setAuditLogsList((data?.recentActivity as any) || []);
+    } finally {
+      setLoadingAudits(false);
+    }
+  };
 
   const navigate = useNavigate();
 
@@ -234,7 +259,7 @@ export const ShopDashboardPage: React.FC = () => {
       <div className="dashboard-hero-banner">
         <div className="dashboard-hero-left">
           <div className="dashboard-hero-icon" title="Storefront">
-            🏪
+            <Store size={32} style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div className="dashboard-hero-details">
             <h1>
@@ -740,9 +765,10 @@ export const ShopDashboardPage: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/shop/reports')}
+              onClick={handleOpenAuditsModal}
               className="dashboard-kpi-sublink"
               style={{ fontSize: '0.75rem', fontWeight: 700 }}
+              title="View all chronological store audit records"
             >
               <span>View All</span>
               <span>&rarr;</span>
@@ -961,31 +987,22 @@ export const ShopDashboardPage: React.FC = () => {
                   const color = colors[i % colors.length];
                   return (
                     <div key={c.name} className="categories-legend-item">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{c.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.name}
+                        </span>
                       </div>
-                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{c.count} ({c.pct}%)</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0, marginLeft: '6px' }}>
+                        {c.count} ({c.pct}%)
+                      </span>
                     </div>
                   );
                 })
               ) : (
-                <>
-                  <div className="categories-legend-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Dress</span>
-                    </div>
-                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
-                  </div>
-                  <div className="categories-legend-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }} />
-                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fashion Accessories</span>
-                    </div>
-                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>1 (50.0%)</span>
-                  </div>
-                </>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  No categories recorded yet
+                </div>
               )}
             </div>
           </div>
@@ -1003,7 +1020,7 @@ export const ShopDashboardPage: React.FC = () => {
                 <p className="dashboard-box-desc">Your store at a glance</p>
               </div>
             </div>
-            <span className="dashboard-kpi-filter-tag">This Month ∨</span>
+            <span className="dashboard-kpi-filter-tag">Today</span>
           </div>
 
           <div className="insights-tiles-grid">
@@ -1011,11 +1028,13 @@ export const ShopDashboardPage: React.FC = () => {
             <div className="insight-tile">
               <div className="insight-tile-label">
                 <Coins size={13} style={{ color: '#10b981' }} />
-                <span>Revenue</span>
+                <span>Today Revenue</span>
               </div>
-              <div className="insight-tile-val">₹0.00</div>
+              <div className="insight-tile-val">
+                ₹{Number(data?.stats?.todayRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
               <span className="badge badge-success" style={{ fontSize: '0.62rem', alignSelf: 'flex-start', padding: '1px 5px' }}>
-                &uarr; 0%
+                Live
               </span>
             </div>
 
@@ -1023,20 +1042,26 @@ export const ShopDashboardPage: React.FC = () => {
             <div className="insight-tile">
               <div className="insight-tile-label">
                 <ShoppingCart size={13} style={{ color: '#6366f1' }} />
-                <span>Total Orders</span>
+                <span>Today Orders</span>
               </div>
-              <div className="insight-tile-val">0</div>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>0 completed</span>
+              <div className="insight-tile-val">{data?.stats?.todaySalesCount || 0}</div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                {data?.stats?.todaySalesCount || 0} completed
+              </span>
             </div>
 
             {/* Tile 3 */}
             <div className="insight-tile">
               <div className="insight-tile-label">
-                <AlertTriangle size={13} style={{ color: '#ef4444' }} />
+                <AlertTriangle size={13} style={{ color: (data?.stats?.lowStockCount || 0) > 0 ? '#ef4444' : '#10b981' }} />
                 <span>Low Stock Items</span>
               </div>
-              <div className="insight-tile-val" style={{ color: '#ef4444' }}>1</div>
-              <span style={{ fontSize: '0.62rem', color: 'var(--danger)', fontWeight: 600 }}>Reorder now</span>
+              <div className="insight-tile-val" style={{ color: (data?.stats?.lowStockCount || 0) > 0 ? '#ef4444' : 'var(--text-primary)' }}>
+                {data?.stats?.lowStockCount || 0}
+              </div>
+              <span style={{ fontSize: '0.62rem', color: (data?.stats?.lowStockCount || 0) > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                {(data?.stats?.lowStockCount || 0) > 0 ? 'Reorder now' : 'Stock Optimal'}
+              </span>
             </div>
 
             {/* Tile 4 */}
@@ -1045,12 +1070,261 @@ export const ShopDashboardPage: React.FC = () => {
                 <Users size={13} style={{ color: '#0284c7' }} />
                 <span>Active Staff</span>
               </div>
-              <div className="insight-tile-val">2</div>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>2 shifts logged</span>
+              <div className="insight-tile-val">{data?.stats?.activeEmployees || 0}</div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                {data?.stats?.activeEmployees || 0} on duty
+              </span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* =====================================================================
+          STORE AUDIT & ACTIVITY TRAIL MODAL (VIEW ALL AUDITS)
+          ===================================================================== */}
+      {showAuditModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            padding: '1rem',
+          }}
+          onClick={() => setShowAuditModal(false)}
+        >
+          <div
+            style={{
+              width: '900px',
+              maxWidth: '96vw',
+              maxHeight: '88vh',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--bg-secondary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    color: '#0284c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Shield size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                    Store Audit &amp; Activity Ledger
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    Chronological zero-trust audit trail of store operations and staff activities
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="btn-icon"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Filter Strip */}
+            <div
+              style={{
+                padding: '0.85rem 1.5rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                background: 'var(--bg-primary)',
+              }}
+            >
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  placeholder="Search by username, action, or description..."
+                  value={auditSearchQuery}
+                  onChange={(e) => setAuditSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.45rem 0.8rem 0.45rem 2rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['ALL', 'LOGIN', 'EXPENSE', 'PRODUCT', 'INVENTORY', 'BILL'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAuditActionFilter(f)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      border: '1px solid',
+                      borderColor: auditActionFilter === f ? 'var(--accent-primary)' : 'var(--border-subtle)',
+                      background: auditActionFilter === f ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-secondary)',
+                      color: auditActionFilter === f ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Audit Logs List Table */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 1rem' }}>
+              {loadingAudits ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div className="spinner" style={{ margin: '0 auto 0.75rem' }} />
+                  Loading store audit records...
+                </div>
+              ) : (() => {
+                const filtered = auditLogsList.filter((log) => {
+                  const matchQuery =
+                    !auditSearchQuery ||
+                    (log.actorUsername && log.actorUsername.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                    (log.action && log.action.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                    (log.newValue && log.newValue.toLowerCase().includes(auditSearchQuery.toLowerCase()));
+                  const matchFilter =
+                    auditActionFilter === 'ALL' ||
+                    (log.action && log.action.toUpperCase().includes(auditActionFilter));
+                  return matchQuery && matchFilter;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Shield size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>No audit events found</div>
+                      <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Try adjusting your search query or filters.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '0.65rem 0.75rem' }}>Timestamp</th>
+                        <th style={{ padding: '0.65rem 0.75rem' }}>Actor</th>
+                        <th style={{ padding: '0.65rem 0.75rem' }}>Action</th>
+                        <th style={{ padding: '0.65rem 0.75rem' }}>Details / Change</th>
+                        <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>IP Address</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((log, idx) => {
+                        const isLogin = (log.action || '').includes('LOGIN');
+                        const isExpense = (log.action || '').includes('EXPENSE');
+                        const isProduct = (log.action || '').includes('PRODUCT') || (log.action || '').includes('STOCK');
+                        const badgeColor = isLogin ? '#6366f1' : isExpense ? '#f59e0b' : isProduct ? '#10b981' : '#0284c7';
+                        const badgeBg = isLogin ? 'rgba(99, 102, 241, 0.12)' : isExpense ? 'rgba(245, 158, 11, 0.12)' : isProduct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+
+                        return (
+                          <tr key={log.id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.74rem' }}>
+                              {log.createdAt ? new Date(log.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              @{log.actorUsername || 'system'}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.75rem' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: '4px', background: badgeBg, color: badgeColor, fontSize: '0.68rem', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-primary)', maxWidth: '360px', wordBreak: 'break-word' }}>
+                              {log.newValue || log.resourceType || '—'}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem' }}>
+                              {log.ipAddress || '127.0.0.1'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '0.85rem 1.5rem',
+                borderTop: '1px solid var(--border-subtle)',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.74rem',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <span>Showing {auditLogsList.length} store audit records</span>
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="btn btn-secondary"
+                style={{ padding: '0.4rem 1rem', fontSize: '0.76rem' }}
+              >
+                Close Audit Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

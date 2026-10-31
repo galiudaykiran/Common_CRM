@@ -74,8 +74,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({ receip
   };
 
   return (
-    <div className="pos-modal-overlay">
-      <div className="pos-modal-card" style={{ maxWidth: '440px', maxHeight: '92vh' }}>
+    <div className="pos-modal-overlay" style={{ zIndex: 10050 }}>
+      <div className="pos-modal-card" style={{ maxWidth: '440px', maxHeight: '92vh', zIndex: 10051 }}>
         {/* Modal Header */}
         <div className="pos-modal-header no-print">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px' }}>

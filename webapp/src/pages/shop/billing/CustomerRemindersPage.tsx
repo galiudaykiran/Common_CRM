@@ -10,7 +10,10 @@ import {
   Clock,
   RefreshCw,
   Phone,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { billingApi } from '../../../api/billingApi';
 import {
   CustomerNotificationSchedule,
@@ -18,15 +21,27 @@ import {
   Customer,
   NotificationDeliveryLog,
 } from '../../../types';
+import { soundFx } from '../../../utils/soundEffects';
 import './billing.css';
 
 export const CustomerRemindersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState<CustomerNotificationSchedule[]>([]);
   const [logs, setLogs] = useState<NotificationDeliveryLog[]>([]);
   const [activeTab, setActiveTab] = useState<'schedules' | 'logs'>('schedules');
   const [loading, setLoading] = useState(false);
   const [triggeringNow, setTriggeringNow] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Pagination states (Default Page 0, Size 10)
+  const pageSize = 10;
+  const [schedulePage, setSchedulePage] = useState(0);
+  const [scheduleTotalPages, setScheduleTotalPages] = useState(1);
+  const [scheduleTotalElements, setScheduleTotalElements] = useState(0);
+
+  const [logPage, setLogPage] = useState(0);
+  const [logTotalPages, setLogTotalPages] = useState(1);
+  const [logTotalElements, setLogTotalElements] = useState(0);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -50,15 +65,20 @@ export const CustomerRemindersPage: React.FC = () => {
   });
 
   useEffect(() => {
-    loadSchedules();
-    loadLogs();
-  }, []);
+    loadSchedules(schedulePage);
+  }, [schedulePage]);
 
-  const loadSchedules = async () => {
+  useEffect(() => {
+    loadLogs(logPage);
+  }, [logPage]);
+
+  const loadSchedules = async (page = schedulePage) => {
     setLoading(true);
     try {
-      const res = await billingApi.getSchedules({ page: 0, size: 50 });
-      setSchedules(res.content);
+      const res = await billingApi.getSchedules({ page, size: pageSize });
+      setSchedules(res.content || []);
+      setScheduleTotalPages(res.totalPages || 1);
+      setScheduleTotalElements(res.totalElements || 0);
     } catch (e) {
       console.error(e);
     } finally {
@@ -66,10 +86,12 @@ export const CustomerRemindersPage: React.FC = () => {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = async (page = logPage) => {
     try {
-      const res = await billingApi.getDeliveryLogs({ page: 0, size: 50 });
-      setLogs(res.content);
+      const res = await billingApi.getDeliveryLogs({ page, size: pageSize });
+      setLogs(res.content || []);
+      setLogTotalPages(res.totalPages || 1);
+      setLogTotalElements(res.totalElements || 0);
     } catch (e) {
       console.error(e);
     }
@@ -164,6 +186,19 @@ export const CustomerRemindersPage: React.FC = () => {
       loadSchedules();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleSendNow = async (sch: CustomerNotificationSchedule) => {
+    try {
+      await billingApi.sendScheduleNow(sch.id);
+      soundFx.playNotificationChime();
+      setSuccessMsg(`Dispatched reminder to ${sch.customerName} via ${sch.channel}!`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+      loadSchedules();
+      loadLogs();
+    } catch (err: any) {
+      alert('Failed to send reminder: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -301,9 +336,15 @@ export const CustomerRemindersPage: React.FC = () => {
                   schedules.map((sch) => (
                     <tr key={sch.id} style={{ borderBottom: '1px solid var(--table-border)' }}>
                       <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sch.customerName}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <Phone size={10} /> {sch.customerPhone}
+                        <div
+                          onClick={() => navigate(`/shop/customers?search=${encodeURIComponent(sch.customerPhone)}`)}
+                          style={{ cursor: 'pointer' }}
+                          title="View customer profile in CRM"
+                        >
+                          <div style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{sch.customerName} ↗</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <Phone size={10} /> {sch.customerPhone}
+                          </div>
                         </div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -339,18 +380,69 @@ export const CustomerRemindersPage: React.FC = () => {
                         </button>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDelete(sch.id)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <button
+                            onClick={() => handleSendNow(sch)}
+                            className="btn btn-primary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            title="Dispatch reminder immediately"
+                          >
+                            <Send size={11} />
+                            <span>Send Now</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sch.id)}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                            title="Delete schedule"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Schedules Pagination Footer */}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid var(--border-subtle)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              background: 'var(--table-header-bg)',
+            }}
+          >
+            <div>
+              Showing <strong>{schedules.length}</strong> of <strong>{scheduleTotalElements}</strong> schedules (Page {schedulePage + 1} of {scheduleTotalPages})
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                disabled={schedulePage === 0}
+                onClick={() => setSchedulePage((p) => Math.max(0, p - 1))}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 10px', fontSize: '11px' }}
+              >
+                <ChevronLeft size={13} /> Prev
+              </button>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                {schedulePage + 1} / {scheduleTotalPages}
+              </span>
+              <button
+                disabled={schedulePage >= scheduleTotalPages - 1}
+                onClick={() => setSchedulePage((p) => Math.min(scheduleTotalPages - 1, p + 1))}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 10px', fontSize: '11px' }}
+              >
+                Next <ChevronRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -402,6 +494,45 @@ export const CustomerRemindersPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Logs Pagination Footer */}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid var(--border-subtle)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              background: 'var(--table-header-bg)',
+            }}
+          >
+            <div>
+              Showing <strong>{logs.length}</strong> of <strong>{logTotalElements}</strong> dispatch logs (Page {logPage + 1} of {logTotalPages})
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                disabled={logPage === 0}
+                onClick={() => setLogPage((p) => Math.max(0, p - 1))}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 10px', fontSize: '11px' }}
+              >
+                <ChevronLeft size={13} /> Prev
+              </button>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                {logPage + 1} / {logTotalPages}
+              </span>
+              <button
+                disabled={logPage >= logTotalPages - 1}
+                onClick={() => setLogPage((p) => Math.min(logTotalPages - 1, p + 1))}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '4px 10px', fontSize: '11px' }}
+              >
+                Next <ChevronRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -98,6 +98,11 @@ export const billingApi = {
     return res.data.data;
   },
 
+  sendScheduleNow: async (id: number): Promise<NotificationDeliveryLog> => {
+    const res = await apiClient.post<ApiResponse<NotificationDeliveryLog>>(`/shop/notifications/schedules/${id}/send-now`);
+    return res.data.data;
+  },
+
   getDeliveryLogs: async (params?: {
     page?: number;
     size?: number;

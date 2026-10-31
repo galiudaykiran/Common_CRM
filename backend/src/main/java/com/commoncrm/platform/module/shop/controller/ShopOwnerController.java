@@ -43,6 +43,15 @@ public class ShopOwnerController {
         return ResponseEntity.ok(ApiResponse.success(response, "Store dashboard loaded successfully"));
     }
 
+    @GetMapping("/audit-logs")
+    @PreAuthorize("hasRole('SHOP_OWNER') or hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Get complete chronological audit trail for current store")
+    public ResponseEntity<ApiResponse<java.util.List<com.commoncrm.platform.common.audit.dto.AuditLogResponse>>> getStoreAuditLogs(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        java.util.List<com.commoncrm.platform.common.audit.dto.AuditLogResponse> response = shopOwnerService.getStoreAuditLogs(principal);
+        return ResponseEntity.ok(ApiResponse.success(response, "Store audit logs loaded successfully"));
+    }
+
     @GetMapping("/profile")
     @PreAuthorize("hasRole('SHOP_OWNER') or hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Get current store profile, business configuration, and active modules")

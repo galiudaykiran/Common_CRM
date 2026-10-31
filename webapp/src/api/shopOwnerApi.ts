@@ -21,4 +21,9 @@ export const shopOwnerApi = {
     const res = await apiClient.get<ApiResponse<import('../types').ShopBasicInfo>>('/shop/info');
     return res.data.data;
   },
+
+  getStoreAuditLogs: async (): Promise<import('../types').AuditLogItem[]> => {
+    const res = await apiClient.get<ApiResponse<import('../types').AuditLogItem[]>>('/shop/audit-logs');
+    return res.data.data;
+  },
 };
