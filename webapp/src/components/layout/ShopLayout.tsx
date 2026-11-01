@@ -24,7 +24,6 @@ import {
   HelpCircle,
   Bell,
   FileText,
-  Search,
   UtensilsCrossed,
   QrCode,
   BookOpen,
@@ -386,7 +385,7 @@ export const ShopLayout: React.FC = () => {
             borderBottom: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             padding: '0 2rem',
             position: 'sticky',
             top: 0,
@@ -394,70 +393,6 @@ export const ShopLayout: React.FC = () => {
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <h2 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
-              {storeInfo?.shopName || 'Nagaraju Fancy Store'}
-            </h2>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                padding: '2px 8px',
-                borderRadius: '6px',
-                background: 'rgba(99, 102, 241, 0.15)',
-                color: 'var(--accent-primary)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              {storeInfo?.shopCode || 'NAG_11'}
-            </span>
-          </div>
-
-          {/* Center Global Search Bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '0.42rem 0.85rem',
-              flex: 1,
-              maxWidth: '320px',
-              minWidth: '150px',
-              gap: '0.6rem',
-              boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
-            }}
-          >
-            <Search size={15} style={{ color: 'var(--text-muted)' }} />
-            <input
-              placeholder="Search products, customers, invoices..."
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '0.8rem',
-                color: 'var(--text-primary)',
-                width: '100%',
-              }}
-            />
-            <span
-              style={{
-                fontSize: '0.66rem',
-                fontWeight: 700,
-                padding: '2px 5px',
-                borderRadius: '4px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Ctrl K
-            </span>
-          </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
             {/* Floating Chip Card for Theme Switch & Alert Notifications */}
             <div className="floating-header-chip" role="toolbar" aria-label="Quick Actions">
