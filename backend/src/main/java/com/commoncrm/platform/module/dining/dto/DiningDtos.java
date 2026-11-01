@@ -19,6 +19,7 @@ public class DiningDtos {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class DiningDashboardResponse {
+        private boolean moduleEnabled;
         private long totalTables;
         private long availableTables;
         private long occupiedTables;

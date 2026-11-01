@@ -4,6 +4,7 @@ import com.commoncrm.platform.module.dining.dto.DiningDtos.DiningDashboardRespon
 import com.commoncrm.platform.module.dining.entity.DiningTable;
 import com.commoncrm.platform.module.dining.repository.*;
 import com.commoncrm.platform.module.shop.entity.Shop;
+import com.commoncrm.platform.module.shop.repository.ShopModuleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +23,38 @@ public class DiningDashboardService {
     private final DiningOrderRepository orderRepository;
     private final DiningOrderItemRepository itemRepository;
     private final DiningBillRepository billRepository;
+    private final ShopModuleRepository shopModuleRepository;
 
     @Transactional(readOnly = true)
     public DiningDashboardResponse getDashboardStats(Shop shop) {
         List<DiningTable> tables = tableRepository.findByShopId(shop.getId());
         long totalTables = tables.size();
+
+        boolean isDiningEnabled = shopModuleRepository != null && shopModuleRepository.findAllWithModuleByShopId(shop.getId()).stream()
+                .anyMatch(sm -> "DINING".equalsIgnoreCase(sm.getModule().getCode())
+                        && sm.isEnabled()
+                        && sm.getModule() != null
+                        && sm.getModule().isActive());
+
+        if (!isDiningEnabled) {
+            return DiningDashboardResponse.builder()
+                    .moduleEnabled(false)
+                    .totalTables(totalTables)
+                    .availableTables(0)
+                    .occupiedTables(0)
+                    .reservedTables(0)
+                    .billRequestedTables(0)
+                    .cleaningTables(0)
+                    .activeSessions(0)
+                    .activeOrders(0)
+                    .preparingItems(0)
+                    .readyItems(0)
+                    .servedItems(0)
+                    .todayOrderCount(0)
+                    .todayDiningRevenue(BigDecimal.ZERO)
+                    .build();
+        }
+
         long availableTables = tables.stream().filter(t -> "AVAILABLE".equalsIgnoreCase(t.getStatus())).count();
         long occupiedTables = tables.stream().filter(t -> "OCCUPIED".equalsIgnoreCase(t.getStatus())).count();
         long reservedTables = tables.stream().filter(t -> "RESERVED".equalsIgnoreCase(t.getStatus())).count();
@@ -55,6 +83,7 @@ public class DiningDashboardService {
         }
 
         return DiningDashboardResponse.builder()
+                .moduleEnabled(true)
                 .totalTables(totalTables)
                 .availableTables(availableTables)
                 .occupiedTables(occupiedTables)

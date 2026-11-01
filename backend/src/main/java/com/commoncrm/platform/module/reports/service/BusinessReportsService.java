@@ -16,6 +16,7 @@ import com.commoncrm.platform.module.reports.dto.BusinessReportsDto.*;
 import com.commoncrm.platform.module.reports.repository.ShopExpenseRepository;
 import com.commoncrm.platform.module.shop.entity.Shop;
 import com.commoncrm.platform.module.shop.service.ShopContextService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,28 @@ public class BusinessReportsService {
     private final DiningBillRepository diningBillRepository;
     private final DiningPaymentRepository diningPaymentRepository;
     private final DiningOrderItemRepository diningOrderItemRepository;
+    private final com.commoncrm.platform.module.shop.repository.ShopModuleRepository shopModuleRepository;
+
+    @Autowired
+    public BusinessReportsService(InvoiceRepository invoiceRepository,
+                                  ShopExpenseRepository expenseRepository,
+                                  InventoryTransactionRepository inventoryTransactionRepository,
+                                  InventoryRepository inventoryRepository,
+                                  ShopContextService shopContextService,
+                                  DiningBillRepository diningBillRepository,
+                                  DiningPaymentRepository diningPaymentRepository,
+                                  DiningOrderItemRepository diningOrderItemRepository,
+                                  com.commoncrm.platform.module.shop.repository.ShopModuleRepository shopModuleRepository) {
+        this.invoiceRepository = invoiceRepository;
+        this.expenseRepository = expenseRepository;
+        this.inventoryTransactionRepository = inventoryTransactionRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.shopContextService = shopContextService;
+        this.diningBillRepository = diningBillRepository;
+        this.diningPaymentRepository = diningPaymentRepository;
+        this.diningOrderItemRepository = diningOrderItemRepository;
+        this.shopModuleRepository = shopModuleRepository;
+    }
 
     public BusinessReportsService(InvoiceRepository invoiceRepository,
                                   ShopExpenseRepository expenseRepository,
@@ -50,14 +73,17 @@ public class BusinessReportsService {
                                   DiningBillRepository diningBillRepository,
                                   DiningPaymentRepository diningPaymentRepository,
                                   DiningOrderItemRepository diningOrderItemRepository) {
-        this.invoiceRepository = invoiceRepository;
-        this.expenseRepository = expenseRepository;
-        this.inventoryTransactionRepository = inventoryTransactionRepository;
-        this.inventoryRepository = inventoryRepository;
-        this.shopContextService = shopContextService;
-        this.diningBillRepository = diningBillRepository;
-        this.diningPaymentRepository = diningPaymentRepository;
-        this.diningOrderItemRepository = diningOrderItemRepository;
+        this(invoiceRepository, expenseRepository, inventoryTransactionRepository, inventoryRepository,
+                shopContextService, diningBillRepository, diningPaymentRepository, diningOrderItemRepository, null);
+    }
+
+    private boolean isDiningEnabled(Shop shop) {
+        if (shopModuleRepository == null) return true;
+        return shopModuleRepository.findAllWithModuleByShopId(shop.getId()).stream()
+                .anyMatch(sm -> "DINING".equalsIgnoreCase(sm.getModule().getCode())
+                        && sm.isEnabled()
+                        && sm.getModule() != null
+                        && sm.getModule().isActive());
     }
 
     @Transactional(readOnly = true)
@@ -73,11 +99,14 @@ public class BusinessReportsService {
         // 1. Retail POS Invoices
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
 
-        // 2. Restaurant & Dining Bills (Paid or Active)
-        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
-                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
-                .collect(Collectors.toList());
+        // 2. Restaurant & Dining Bills (Paid or Active) - only if Dining module is enabled
+        boolean diningActive = isDiningEnabled(shop);
+        List<DiningBill> diningBills = (diningBillRepository != null && diningActive)
+                ? diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                    .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                            (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
 
         BigDecimal retailGross = BigDecimal.ZERO;
         BigDecimal retailDiscounts = BigDecimal.ZERO;
@@ -154,11 +183,13 @@ public class BusinessReportsService {
 
         BigDecimal prevGrossRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), prevStartInstant, prevEndInstant);
         if (prevGrossRevenue == null) prevGrossRevenue = BigDecimal.ZERO;
-        BigDecimal prevDiningGross = diningBillRepository.sumPaidRevenueBetween(shop.getId(), prevStartInstant, prevEndInstant);
-        if (prevDiningGross != null) prevGrossRevenue = prevGrossRevenue.add(prevDiningGross);
+        long prevInvoicesCount = invoiceRepository.countCompletedBetween(shop.getId(), prevStartInstant, prevEndInstant);
 
-        long prevInvoicesCount = invoiceRepository.countCompletedBetween(shop.getId(), prevStartInstant, prevEndInstant)
-                + diningBillRepository.countPaidBillsBetween(shop.getId(), prevStartInstant, prevEndInstant);
+        if (diningBillRepository != null && diningActive) {
+            BigDecimal prevDiningGross = diningBillRepository.sumPaidRevenueBetween(shop.getId(), prevStartInstant, prevEndInstant);
+            if (prevDiningGross != null) prevGrossRevenue = prevGrossRevenue.add(prevDiningGross);
+            prevInvoicesCount += diningBillRepository.countPaidBillsBetween(shop.getId(), prevStartInstant, prevEndInstant);
+        }
 
         Double growthPercent = null;
         if (prevGrossRevenue.compareTo(BigDecimal.ZERO) > 0) {
@@ -213,10 +244,13 @@ public class BusinessReportsService {
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
-        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
-                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
-                .collect(Collectors.toList());
+        boolean diningActive = isDiningEnabled(shop);
+        List<DiningBill> diningBills = (diningBillRepository != null && diningActive)
+                ? diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                    .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                            (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
 
         // CASE 1: Single Day / Today -> Group by operating hours timing intervals (08:00 to 22:00)
         if (start.equals(end)) {
@@ -424,28 +458,30 @@ public class BusinessReportsService {
             }
         }
 
-        // Merge Dine-In dishes sold from Restaurant & Dining module
-        List<Object[]> dishStats = diningOrderItemRepository.findDishSalesStatsBetween(shop.getId(), startInstant, endInstant);
-        for (Object[] r : dishStats) {
-            Long dishId = (Long) r[0];
-            String dishName = (String) r[1];
-            BigDecimal qty = (r[2] instanceof BigDecimal) ? (BigDecimal) r[2] : BigDecimal.valueOf(((Number) r[2]).longValue());
-            BigDecimal rev = (BigDecimal) r[3];
-            Long virtualDishKey = -(1000000L + (dishId != null ? dishId : 0L));
+        // Merge Dine-In dishes sold from Restaurant & Dining module (if module enabled)
+        if (diningOrderItemRepository != null && isDiningEnabled(shop)) {
+            List<Object[]> dishStats = diningOrderItemRepository.findDishSalesStatsBetween(shop.getId(), startInstant, endInstant);
+            for (Object[] r : dishStats) {
+                Long dishId = (Long) r[0];
+                String dishName = (String) r[1];
+                BigDecimal qty = (r[2] instanceof BigDecimal) ? (BigDecimal) r[2] : BigDecimal.valueOf(((Number) r[2]).longValue());
+                BigDecimal rev = (BigDecimal) r[3];
+                Long virtualDishKey = -(1000000L + (dishId != null ? dishId : 0L));
 
-            ProductProfitabilityStat stat = map.computeIfAbsent(virtualDishKey, k -> ProductProfitabilityStat.builder()
-                    .productId(virtualDishKey)
-                    .productName(dishName + " (🍽️ Dine-In)")
-                    .sku("DINE-IN-" + dishId)
-                    .quantitySold(BigDecimal.ZERO)
-                    .totalRevenue(BigDecimal.ZERO)
-                    .totalCost(BigDecimal.ZERO)
-                    .grossProfit(BigDecimal.ZERO)
-                    .marginPercent(0.0)
-                    .build());
+                ProductProfitabilityStat stat = map.computeIfAbsent(virtualDishKey, k -> ProductProfitabilityStat.builder()
+                        .productId(virtualDishKey)
+                        .productName(dishName + " (🍽️ Dine-In)")
+                        .sku("DINE-IN-" + dishId)
+                        .quantitySold(BigDecimal.ZERO)
+                        .totalRevenue(BigDecimal.ZERO)
+                        .totalCost(BigDecimal.ZERO)
+                        .grossProfit(BigDecimal.ZERO)
+                        .marginPercent(0.0)
+                        .build());
 
-            stat.setQuantitySold(stat.getQuantitySold().add(qty));
-            stat.setTotalRevenue(stat.getTotalRevenue().add(rev));
+                stat.setQuantitySold(stat.getQuantitySold().add(qty));
+                stat.setTotalRevenue(stat.getTotalRevenue().add(rev));
+            }
         }
 
         List<ProductProfitabilityStat> list = new ArrayList<>(map.values());
@@ -473,7 +509,9 @@ public class BusinessReportsService {
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
         List<Object[]> rawInvoices = invoiceRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant);
-        List<Object[]> rawDining = diningPaymentRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant);
+        List<Object[]> rawDining = (diningPaymentRepository != null && isDiningEnabled(shop))
+                ? diningPaymentRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant)
+                : Collections.emptyList();
 
         Map<String, BigDecimal> modeAmounts = new HashMap<>();
         Map<String, Long> modeCounts = new HashMap<>();
@@ -564,10 +602,12 @@ public class BusinessReportsService {
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
-        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
-                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
-                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
-                .collect(Collectors.toList());
+        List<DiningBill> diningBills = (diningBillRepository != null && isDiningEnabled(shop))
+                ? diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                    .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                            (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
 
         BigDecimal taxableTurnover = BigDecimal.ZERO;
         BigDecimal cgstTotal = BigDecimal.ZERO;

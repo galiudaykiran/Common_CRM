@@ -510,7 +510,7 @@ public class ShopService {
                         .moduleId(m.getModule().getId())
                         .moduleCode(m.getModule().getCode())
                         .moduleName(m.getModule().getName())
-                        .enabled(m.isEnabled())
+                        .enabled(m.isEnabled() && m.getModule() != null && m.getModule().isActive())
                         .build()).collect(Collectors.toList())
                 : Collections.emptyList();
 

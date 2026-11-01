@@ -159,6 +159,33 @@ export const DiningDashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Module Disabled Warning Banner */}
+      {stats?.moduleEnabled === false && (
+        <div
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            color: '#dc2626',
+          }}
+        >
+          <AlertCircle size={22} style={{ flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              Restaurant &amp; Dining Module Disabled by Administrator
+            </div>
+            <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '2px' }}>
+              Today's dining revenue and new orders are paused because the DINING module is currently disabled at the admin level. Enable the module from Platform Modules or Store Details to resume active dining operations.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards Grid */}
       <div
         style={{
@@ -271,10 +298,10 @@ export const DiningDashboardPage: React.FC = () => {
             </span>
           </div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            {stats?.todayOrderCount || 0}
+            {stats?.moduleEnabled === false ? '0' : (stats?.todayOrderCount || 0)}
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            {stats?.activeOrders || 0} ongoing active orders
+          <div style={{ fontSize: '0.8rem', color: stats?.moduleEnabled === false ? '#ef4444' : 'var(--text-muted)', marginTop: '0.35rem' }}>
+            {stats?.moduleEnabled === false ? 'Module Inactive' : `${stats?.activeOrders || 0} ongoing active orders`}
           </div>
         </div>
 
@@ -295,8 +322,8 @@ export const DiningDashboardPage: React.FC = () => {
                 width: '36px',
                 height: '36px',
                 borderRadius: '8px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                color: '#10b981',
+                background: stats?.moduleEnabled === false ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                color: stats?.moduleEnabled === false ? '#ef4444' : '#10b981',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -305,11 +332,11 @@ export const DiningDashboardPage: React.FC = () => {
               <DollarSign size={18} />
             </span>
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#10b981' }}>
-            ₹{(stats?.todayDiningRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: stats?.moduleEnabled === false ? 'var(--text-muted)' : '#10b981' }}>
+            ₹{stats?.moduleEnabled === false ? '0.00' : (stats?.todayDiningRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            Billed & paid revenue today
+          <div style={{ fontSize: '0.8rem', color: stats?.moduleEnabled === false ? '#ef4444' : 'var(--text-muted)', marginTop: '0.35rem' }}>
+            {stats?.moduleEnabled === false ? 'Module Inactive' : 'Billed & paid revenue today'}
           </div>
         </div>
       </div>

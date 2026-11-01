@@ -96,7 +96,7 @@ public class ShopOwnerService {
         List<ShopModule> shopModules = shopModuleRepository.findAllWithModuleByShopId(shop.getId());
 
         List<String> enabledCodes = shopModules.stream()
-                .filter(ShopModule::isEnabled)
+                .filter(sm -> sm.isEnabled() && sm.getModule() != null && sm.getModule().isActive())
                 .map(sm -> sm.getModule().getCode())
                 .collect(Collectors.toList());
 
@@ -107,7 +107,7 @@ public class ShopOwnerService {
                         .name(sm.getModule().getName())
                         .description(sm.getModule().getDescription())
                         .core(sm.getModule().isCoreModule())
-                        .enabled(sm.isEnabled())
+                        .enabled(sm.isEnabled() && sm.getModule() != null && sm.getModule().isActive())
                         .build())
                 .collect(Collectors.toList());
 
@@ -136,20 +136,31 @@ public class ShopOwnerService {
         Instant startOfYesterday = yesterday.atStartOfDay(zone).toInstant();
         Instant endOfYesterday = today.atStartOfDay(zone).toInstant().minusNanos(1);
 
-        BigDecimal todayRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), startOfToday, endOfToday);
-        if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
-        long todaySalesCount = invoiceRepository.countCompletedBetween(shop.getId(), startOfToday, endOfToday);
+        boolean isDiningEnabled = enabledCodes.contains("DINING");
+        boolean isRetailEnabled = enabledCodes.contains("POS") || enabledCodes.contains("BILLING") || shopModules.isEmpty();
 
-        if (diningBillRepository != null) {
+        BigDecimal todayRevenue = BigDecimal.ZERO;
+        long todaySalesCount = 0;
+
+        if (isRetailEnabled) {
+            BigDecimal retailToday = invoiceRepository.sumRevenueBetween(shop.getId(), startOfToday, endOfToday);
+            if (retailToday != null) todayRevenue = todayRevenue.add(retailToday);
+            todaySalesCount += invoiceRepository.countCompletedBetween(shop.getId(), startOfToday, endOfToday);
+        }
+
+        if (diningBillRepository != null && isDiningEnabled) {
             BigDecimal todayDining = diningBillRepository.sumPaidRevenueBetween(shop.getId(), startOfToday, endOfToday);
             if (todayDining != null) todayRevenue = todayRevenue.add(todayDining);
             todaySalesCount += diningBillRepository.countPaidBillsBetween(shop.getId(), startOfToday, endOfToday);
         }
 
-        BigDecimal yesterdayRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), startOfYesterday, endOfYesterday);
-        if (yesterdayRevenue == null) yesterdayRevenue = BigDecimal.ZERO;
+        BigDecimal yesterdayRevenue = BigDecimal.ZERO;
+        if (isRetailEnabled) {
+            BigDecimal retailYesterday = invoiceRepository.sumRevenueBetween(shop.getId(), startOfYesterday, endOfYesterday);
+            if (retailYesterday != null) yesterdayRevenue = yesterdayRevenue.add(retailYesterday);
+        }
 
-        if (diningBillRepository != null) {
+        if (diningBillRepository != null && isDiningEnabled) {
             BigDecimal yesterdayDining = diningBillRepository.sumPaidRevenueBetween(shop.getId(), startOfYesterday, endOfYesterday);
             if (yesterdayDining != null) yesterdayRevenue = yesterdayRevenue.add(yesterdayDining);
         }
@@ -303,7 +314,7 @@ public class ShopOwnerService {
                         .moduleId(m.getModule().getId())
                         .moduleCode(m.getModule().getCode())
                         .moduleName(m.getModule().getName())
-                        .enabled(m.isEnabled())
+                        .enabled(m.isEnabled() && m.getModule() != null && m.getModule().isActive())
                         .build()).collect(Collectors.toList())
                 : Collections.emptyList();
 
@@ -351,7 +362,7 @@ public class ShopOwnerService {
         Shop shop = shopContextService.requireCurrentShop(principal);
         List<ShopModule> shopModules = shopModuleRepository.findAllWithModuleByShopId(shop.getId());
         List<String> enabledCodes = shopModules.stream()
-                .filter(ShopModule::isEnabled)
+                .filter(sm -> sm.isEnabled() && sm.getModule() != null && sm.getModule().isActive())
                 .map(sm -> sm.getModule().getCode())
                 .collect(Collectors.toList());
 

@@ -14,6 +14,7 @@ export interface DiningDashboardStats {
   servedItems: number;
   todayOrderCount: number;
   todayDiningRevenue: number;
+  moduleEnabled?: boolean;
 }
 
 export interface DiningArea {
