@@ -16,6 +16,8 @@ import com.commoncrm.platform.module.shop.entity.ShopModule;
 import com.commoncrm.platform.module.shop.repository.ShopConfigurationRepository;
 import com.commoncrm.platform.module.shop.repository.ShopModuleRepository;
 import com.commoncrm.platform.module.shop.repository.ShopRepository;
+import com.commoncrm.platform.module.billing.repository.CustomerRepository;
+import com.commoncrm.platform.module.billing.repository.InvoiceRepository;
 import com.commoncrm.platform.module.inventory.repository.InventoryRepository;
 import com.commoncrm.platform.module.inventory.repository.ProductRepository;
 import com.commoncrm.platform.module.tenant.entity.Tenant;
@@ -55,6 +57,10 @@ class ShopOwnerServiceTest {
     @Mock
     private InventoryRepository inventoryRepository;
     @Mock
+    private InvoiceRepository invoiceRepository;
+    @Mock
+    private CustomerRepository customerRepository;
+    @Mock
     private AuditService auditService;
 
     private ShopContextService shopContextService;
@@ -75,6 +81,8 @@ class ShopOwnerServiceTest {
                 userRepository,
                 productRepository,
                 inventoryRepository,
+                invoiceRepository,
+                customerRepository,
                 auditService
         );
 

@@ -11,6 +11,7 @@
 
   --accent-primary: #6366f1;
   --accent-primary-hover: #4f46e5;
+  --primary-color: #6366f1;
   --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
   --accent-glow: 0 0 25px rgba(99, 102, 241, 0.35);
 
@@ -55,6 +56,7 @@
 
   --accent-primary: #4f46e5;
   --accent-primary-hover: #4338ca;
+  --primary-color: #4f46e5;
   --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   --accent-glow: 0 4px 16px rgba(79, 70, 229, 0.25);
 

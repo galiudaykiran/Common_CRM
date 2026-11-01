@@ -673,57 +673,94 @@
 .reports-growth-badge-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 0.75rem 1.15rem;
+  border-radius: 14px;
+  padding: 0.85rem 1.25rem;
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(12px);
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reports-growth-badge-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(-1px);
 }
 
 .growth-badge-left {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .growth-badge-date-pill {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .growth-badge-vs {
   font-size: 0.68rem;
   color: var(--text-muted);
+  text-transform: lowercase;
 }
 
 .growth-pill-green {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(16, 185, 129, 0.14);
   color: #10b981;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.growth-pill-red {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .growth-badge-icon-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #10b981;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.icon-box-positive {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.24) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.icon-box-negative {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.24) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
 /* Sparklines inside 4 KPI cards */

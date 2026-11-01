@@ -91,6 +91,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/shop/inventory/scan-bridge/**",
+                                "/api/v1/public/dining/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
@@ -98,8 +99,8 @@ public class SecurityConfig {
                                 "/actuator/info"
                         ).permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("PLATFORM_ADMIN")
-                        .requestMatchers("/api/v1/shop/**").hasAnyRole(
-                                "SHOP_OWNER", "SHOP_EMPLOYEE", "STORE_MANAGER", "CASHIER", "SALES_ASSOCIATE", "INVENTORY_CLERK"
+                        .requestMatchers("/api/v1/shop/**", "/api/v1/dining/**").hasAnyRole(
+                                "SHOP_OWNER", "SHOP_EMPLOYEE", "STORE_MANAGER", "CASHIER", "SALES_ASSOCIATE", "INVENTORY_CLERK", "PLATFORM_ADMIN"
                         )
                         .anyRequest().authenticated()
                 )

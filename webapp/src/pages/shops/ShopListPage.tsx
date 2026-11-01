@@ -608,6 +608,36 @@ export const ShopListPage: React.FC = () => {
     }
   };
 
+  const [updatingModules, setUpdatingModules] = useState(false);
+
+  const handleToggleShopModule = async (moduleId: number, moduleName: string, isCurrentlyEnabled: boolean) => {
+    if (!selectedShopDetail) return;
+
+    const currentIds = (selectedShopDetail.modules || []).map((m) => m.moduleId);
+    const newIds = isCurrentlyEnabled
+      ? currentIds.filter((id) => id !== moduleId)
+      : [...currentIds, moduleId];
+
+    try {
+      setUpdatingModules(true);
+      const res = await apiClient.put<ApiResponse<ShopDetail>>(`/admin/shops/${selectedShopDetail.id}/modules`, newIds);
+      if (res.data.success) {
+        setSelectedShopDetail(res.data.data);
+        showToast(
+          isCurrentlyEnabled
+            ? `Module '${moduleName}' has been disabled for ${selectedShopDetail.name}.`
+            : `Module '${moduleName}' has been added & enabled for ${selectedShopDetail.name}! Store Owner and Employees have immediate access.`,
+          'success'
+        );
+        loadShops(page);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update shop modules');
+    } finally {
+      setUpdatingModules(false);
+    }
+  };
+
   // -------------------------------------------------------------
   // ONBOARD STORE: VALIDATION & REVIEW CONFIRMATION MODAL
   // -------------------------------------------------------------
@@ -2117,17 +2147,80 @@ export const ShopListPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Activated Modules */}
-              <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                <h5 style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700 }}>
-                  Active Feature Modules ({selectedShopDetail.modules?.length || 0})
-                </h5>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {(selectedShopDetail.modules || []).map((m) => (
-                    <span key={m.moduleId} className="badge badge-success" style={{ fontSize: '0.75rem' }}>
-                      ✓ {m.moduleName} ({m.moduleCode})
+              {/* Interactive Feature Modules Provisioning */}
+              <div style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <h5 style={{ fontSize: '0.78rem', color: 'var(--accent-primary)', textTransform: 'uppercase', margin: 0, fontWeight: 800, letterSpacing: '0.04em' }}>
+                      Feature Module Provisioning ({selectedShopDetail.modules?.length || 0} Active)
+                    </h5>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                      Add or disable modules for this store. Changes take effect immediately for the store owner and all employees.
+                    </p>
+                  </div>
+                  {updatingModules && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600 }}>
+                      <RefreshCw size={13} className="animate-spin" /> Saving modules...
                     </span>
-                  ))}
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
+                  {modules.map((mod) => {
+                    const isEnabled = (selectedShopDetail.modules || []).some((sm) => sm.moduleId === mod.id);
+                    return (
+                      <div
+                        key={mod.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.75rem 0.9rem',
+                          borderRadius: '8px',
+                          border: isEnabled ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--border-subtle)',
+                          background: isEnabled ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-secondary)',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <div style={{ marginRight: '0.75rem', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                              {mod.name}
+                            </strong>
+                            <span className="code-mono" style={{ fontSize: '0.68rem', padding: '1px 5px', background: 'var(--bg-primary)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                              {mod.code}
+                            </span>
+                          </div>
+                          {mod.description && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '200px' }} title={mod.description}>
+                              {mod.description}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={updatingModules}
+                          onClick={() => handleToggleShopModule(mod.id, mod.name, isEnabled)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            border: isEnabled ? '1px solid rgba(239, 68, 68, 0.35)' : 'none',
+                            background: isEnabled ? 'rgba(239, 68, 68, 0.08)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: isEnabled ? '#ef4444' : '#ffffff',
+                            boxShadow: isEnabled ? 'none' : '0 2px 6px rgba(16, 185, 129, 0.35)',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {isEnabled ? 'Disable' : '+ Add Module'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

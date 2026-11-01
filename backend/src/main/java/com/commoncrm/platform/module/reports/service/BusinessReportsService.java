@@ -4,6 +4,10 @@ import com.commoncrm.platform.common.security.UserPrincipal;
 import com.commoncrm.platform.module.billing.entity.Invoice;
 import com.commoncrm.platform.module.billing.entity.InvoiceItem;
 import com.commoncrm.platform.module.billing.repository.InvoiceRepository;
+import com.commoncrm.platform.module.dining.entity.DiningBill;
+import com.commoncrm.platform.module.dining.repository.DiningBillRepository;
+import com.commoncrm.platform.module.dining.repository.DiningOrderItemRepository;
+import com.commoncrm.platform.module.dining.repository.DiningPaymentRepository;
 import com.commoncrm.platform.module.inventory.entity.Inventory;
 import com.commoncrm.platform.module.inventory.entity.Product;
 import com.commoncrm.platform.module.inventory.repository.InventoryRepository;
@@ -34,17 +38,26 @@ public class BusinessReportsService {
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final InventoryRepository inventoryRepository;
     private final ShopContextService shopContextService;
+    private final DiningBillRepository diningBillRepository;
+    private final DiningPaymentRepository diningPaymentRepository;
+    private final DiningOrderItemRepository diningOrderItemRepository;
 
     public BusinessReportsService(InvoiceRepository invoiceRepository,
                                   ShopExpenseRepository expenseRepository,
                                   InventoryTransactionRepository inventoryTransactionRepository,
                                   InventoryRepository inventoryRepository,
-                                  ShopContextService shopContextService) {
+                                  ShopContextService shopContextService,
+                                  DiningBillRepository diningBillRepository,
+                                  DiningPaymentRepository diningPaymentRepository,
+                                  DiningOrderItemRepository diningOrderItemRepository) {
         this.invoiceRepository = invoiceRepository;
         this.expenseRepository = expenseRepository;
         this.inventoryTransactionRepository = inventoryTransactionRepository;
         this.inventoryRepository = inventoryRepository;
         this.shopContextService = shopContextService;
+        this.diningBillRepository = diningBillRepository;
+        this.diningPaymentRepository = diningPaymentRepository;
+        this.diningOrderItemRepository = diningOrderItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -53,25 +66,32 @@ public class BusinessReportsService {
         LocalDate start = (startDate != null) ? startDate : LocalDate.now().withDayOfMonth(1);
         LocalDate end = (endDate != null) ? endDate : LocalDate.now();
 
-        ZoneId zone = ZoneId.systemDefault();
+        final ZoneId zone = resolveZone(shop);
         Instant startInstant = start.atStartOfDay(zone).toInstant();
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
+        // 1. Retail POS Invoices
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
 
-        BigDecimal grossRevenue = BigDecimal.ZERO;
-        BigDecimal totalDiscounts = BigDecimal.ZERO;
+        // 2. Restaurant & Dining Bills (Paid or Active)
+        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                .collect(Collectors.toList());
+
+        BigDecimal retailGross = BigDecimal.ZERO;
+        BigDecimal retailDiscounts = BigDecimal.ZERO;
+        BigDecimal retailTax = BigDecimal.ZERO;
+        BigDecimal retailGrandTotal = BigDecimal.ZERO;
         BigDecimal cogs = BigDecimal.ZERO;
-        BigDecimal totalTax = BigDecimal.ZERO;
-        BigDecimal grandTotal = BigDecimal.ZERO;
 
         for (Invoice inv : invoices) {
-            grossRevenue = grossRevenue.add(inv.getSubtotal() != null ? inv.getSubtotal() : BigDecimal.ZERO);
+            retailGross = retailGross.add(inv.getSubtotal() != null ? inv.getSubtotal() : BigDecimal.ZERO);
             BigDecimal disc = (inv.getItemDiscountTotal() != null ? inv.getItemDiscountTotal() : BigDecimal.ZERO)
                     .add(inv.getInvoiceDiscountTotal() != null ? inv.getInvoiceDiscountTotal() : BigDecimal.ZERO);
-            totalDiscounts = totalDiscounts.add(disc);
-            totalTax = totalTax.add(inv.getTotalTax() != null ? inv.getTotalTax() : BigDecimal.ZERO);
-            grandTotal = grandTotal.add(inv.getGrandTotal() != null ? inv.getGrandTotal() : BigDecimal.ZERO);
+            retailDiscounts = retailDiscounts.add(disc);
+            retailTax = retailTax.add(inv.getTotalTax() != null ? inv.getTotalTax() : BigDecimal.ZERO);
+            retailGrandTotal = retailGrandTotal.add(inv.getGrandTotal() != null ? inv.getGrandTotal() : BigDecimal.ZERO);
 
             if (inv.getItems() != null) {
                 for (InvoiceItem item : inv.getItems()) {
@@ -81,6 +101,24 @@ public class BusinessReportsService {
                 }
             }
         }
+
+        BigDecimal diningGross = BigDecimal.ZERO;
+        BigDecimal diningDiscounts = BigDecimal.ZERO;
+        BigDecimal diningTax = BigDecimal.ZERO;
+        BigDecimal diningGrandTotal = BigDecimal.ZERO;
+
+        for (DiningBill bill : diningBills) {
+            diningGross = diningGross.add(bill.getSubtotal() != null ? bill.getSubtotal() : BigDecimal.ZERO);
+            diningDiscounts = diningDiscounts.add(bill.getDiscountTotal() != null ? bill.getDiscountTotal() : BigDecimal.ZERO);
+            diningTax = diningTax.add(bill.getTaxTotal() != null ? bill.getTaxTotal() : BigDecimal.ZERO);
+            diningGrandTotal = diningGrandTotal.add(bill.getPaidAmount() != null && bill.getPaidAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? bill.getPaidAmount() : (bill.getGrandTotal() != null ? bill.getGrandTotal() : BigDecimal.ZERO));
+        }
+
+        BigDecimal grossRevenue = retailGross.add(diningGross);
+        BigDecimal totalDiscounts = retailDiscounts.add(diningDiscounts);
+        BigDecimal totalTax = retailTax.add(diningTax);
+        BigDecimal grandTotal = retailGrandTotal.add(diningGrandTotal);
 
         BigDecimal netRevenue = grossRevenue.subtract(totalDiscounts);
         BigDecimal grossProfit = netRevenue.subtract(cogs);
@@ -102,15 +140,44 @@ public class BusinessReportsService {
                 ? netProfit.divide(netRevenue, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
                 : 0.0;
 
-        BigDecimal averageBillValue = !invoices.isEmpty()
-                ? grandTotal.divide(BigDecimal.valueOf(invoices.size()), 2, RoundingMode.HALF_UP)
+        long totalBillsCount = invoices.size() + diningBills.size();
+        BigDecimal averageBillValue = (totalBillsCount > 0)
+                ? grandTotal.divide(BigDecimal.valueOf(totalBillsCount), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
+
+        // Dynamic calculation vs immediately preceding identical duration period
+        long periodDays = ChronoUnit.DAYS.between(start, end) + 1;
+        LocalDate prevStart = start.minusDays(periodDays);
+        LocalDate prevEnd = start.minusDays(1);
+        Instant prevStartInstant = prevStart.atStartOfDay(zone).toInstant();
+        Instant prevEndInstant = prevEnd.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
+
+        BigDecimal prevGrossRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), prevStartInstant, prevEndInstant);
+        if (prevGrossRevenue == null) prevGrossRevenue = BigDecimal.ZERO;
+        BigDecimal prevDiningGross = diningBillRepository.sumPaidRevenueBetween(shop.getId(), prevStartInstant, prevEndInstant);
+        if (prevDiningGross != null) prevGrossRevenue = prevGrossRevenue.add(prevDiningGross);
+
+        long prevInvoicesCount = invoiceRepository.countCompletedBetween(shop.getId(), prevStartInstant, prevEndInstant)
+                + diningBillRepository.countPaidBillsBetween(shop.getId(), prevStartInstant, prevEndInstant);
+
+        Double growthPercent = null;
+        if (prevGrossRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            growthPercent = grossRevenue.subtract(prevGrossRevenue)
+                    .divide(prevGrossRevenue, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(1, RoundingMode.HALF_UP)
+                    .doubleValue();
+        } else if (grossRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            growthPercent = 100.0;
+        } else {
+            growthPercent = 0.0;
+        }
 
         return FinancialSummaryResponse.builder()
                 .startDate(start)
                 .endDate(end)
                 .periodLabel(start.equals(end) ? start.toString() : start + " to " + end)
-                .totalInvoicesCount(invoices.size())
+                .totalInvoicesCount(totalBillsCount)
                 .grossRevenue(grossRevenue.setScale(2, RoundingMode.HALF_UP))
                 .totalDiscounts(totalDiscounts.setScale(2, RoundingMode.HALF_UP))
                 .netRevenue(netRevenue.setScale(2, RoundingMode.HALF_UP))
@@ -125,6 +192,13 @@ public class BusinessReportsService {
                 .isNetProfit(netProfit.compareTo(BigDecimal.ZERO) >= 0)
                 .totalGstCollected(totalTax.setScale(2, RoundingMode.HALF_UP))
                 .averageBillValue(averageBillValue)
+                .previousGrossRevenue(prevGrossRevenue.setScale(2, RoundingMode.HALF_UP))
+                .revenueGrowthPercent(growthPercent)
+                .previousInvoicesCount(prevInvoicesCount)
+                .diningRevenue(diningGross.subtract(diningDiscounts).setScale(2, RoundingMode.HALF_UP))
+                .diningBillsCount(diningBills.size())
+                .retailRevenue(retailGross.subtract(retailDiscounts).setScale(2, RoundingMode.HALF_UP))
+                .retailInvoicesCount(invoices.size())
                 .build();
     }
 
@@ -134,11 +208,15 @@ public class BusinessReportsService {
         LocalDate start = (startDate != null) ? startDate : LocalDate.now().minusDays(14);
         LocalDate end = (endDate != null) ? endDate : LocalDate.now();
 
-        ZoneId zone = ZoneId.systemDefault();
+        final ZoneId zone = resolveZone(shop);
         Instant startInstant = start.atStartOfDay(zone).toInstant();
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
+        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                .collect(Collectors.toList());
 
         // CASE 1: Single Day / Today -> Group by operating hours timing intervals (08:00 to 22:00)
         if (start.equals(end)) {
@@ -168,6 +246,17 @@ public class BusinessReportsService {
                         billCount++;
                     }
                 }
+
+                for (DiningBill bill : diningBills) {
+                    int billHour = bill.getCreatedAt().atZone(zone).getHour();
+                    if (billHour >= h && billHour < nextH) {
+                        BigDecimal net = (bill.getSubtotal() != null ? bill.getSubtotal() : BigDecimal.ZERO)
+                                .subtract(bill.getDiscountTotal() != null ? bill.getDiscountTotal() : BigDecimal.ZERO);
+                        slotRev = slotRev.add(net);
+                        billCount++;
+                    }
+                }
+
                 BigDecimal slotGross = slotRev.subtract(slotCogs);
                 hourlyPoints.add(DailyTrendPoint.builder()
                         .dateFormatted(label)
@@ -187,6 +276,8 @@ public class BusinessReportsService {
         if (daysDiff > 62) {
             Map<YearMonth, List<Invoice>> invoicesByMonth = invoices.stream()
                     .collect(Collectors.groupingBy(inv -> YearMonth.from(inv.getCreatedAt().atZone(zone))));
+            Map<YearMonth, List<DiningBill>> diningByMonth = diningBills.stream()
+                    .collect(Collectors.groupingBy(b -> YearMonth.from(b.getCreatedAt().atZone(zone))));
 
             DateTimeFormatter ymFormatter = DateTimeFormatter.ofPattern("MMM yyyy");
             List<DailyTrendPoint> monthlyPoints = new ArrayList<>();
@@ -195,6 +286,8 @@ public class BusinessReportsService {
 
             for (YearMonth ym = startYm; !ym.isAfter(endYm); ym = ym.plusMonths(1)) {
                 List<Invoice> monthInvoices = invoicesByMonth.getOrDefault(ym, Collections.emptyList());
+                List<DiningBill> monthDining = diningByMonth.getOrDefault(ym, Collections.emptyList());
+
                 BigDecimal mRev = BigDecimal.ZERO;
                 BigDecimal mCogs = BigDecimal.ZERO;
                 for (Invoice inv : monthInvoices) {
@@ -210,6 +303,12 @@ public class BusinessReportsService {
                         }
                     }
                 }
+                for (DiningBill bill : monthDining) {
+                    BigDecimal net = (bill.getSubtotal() != null ? bill.getSubtotal() : BigDecimal.ZERO)
+                            .subtract(bill.getDiscountTotal() != null ? bill.getDiscountTotal() : BigDecimal.ZERO);
+                    mRev = mRev.add(net);
+                }
+
                 LocalDate monthStart = ym.atDay(1);
                 LocalDate monthEnd = ym.atEndOfMonth();
                 BigDecimal mExpenses = expenseRepository.sumExpensesByShopIdAndDateBetween(shop.getId(), monthStart, monthEnd);
@@ -225,7 +324,7 @@ public class BusinessReportsService {
                         .grossProfit(mGross.setScale(2, RoundingMode.HALF_UP))
                         .expenses(mExpenses.setScale(2, RoundingMode.HALF_UP))
                         .netProfit(mNet.setScale(2, RoundingMode.HALF_UP))
-                        .billCount(monthInvoices.size())
+                        .billCount(monthInvoices.size() + monthDining.size())
                         .build());
             }
             return monthlyPoints;
@@ -234,12 +333,15 @@ public class BusinessReportsService {
         // CASE 3: Days interval (7 Days, This Month, Last Month) -> Group by individual day
         Map<LocalDate, List<Invoice>> invoicesByDate = invoices.stream()
                 .collect(Collectors.groupingBy(inv -> inv.getCreatedAt().atZone(zone).toLocalDate()));
+        Map<LocalDate, List<DiningBill>> diningByDate = diningBills.stream()
+                .collect(Collectors.groupingBy(b -> b.getCreatedAt().atZone(zone).toLocalDate()));
 
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         List<DailyTrendPoint> points = new ArrayList<>();
 
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
             List<Invoice> dayInvoices = invoicesByDate.getOrDefault(d, Collections.emptyList());
+            List<DiningBill> dayDining = diningByDate.getOrDefault(d, Collections.emptyList());
 
             BigDecimal dayRev = BigDecimal.ZERO;
             BigDecimal dayCogs = BigDecimal.ZERO;
@@ -257,6 +359,11 @@ public class BusinessReportsService {
                     }
                 }
             }
+            for (DiningBill bill : dayDining) {
+                BigDecimal net = (bill.getSubtotal() != null ? bill.getSubtotal() : BigDecimal.ZERO)
+                        .subtract(bill.getDiscountTotal() != null ? bill.getDiscountTotal() : BigDecimal.ZERO);
+                dayRev = dayRev.add(net);
+            }
 
             BigDecimal dayExpenses = expenseRepository.sumExpensesByShopIdAndDateBetween(shop.getId(), d, d);
             if (dayExpenses == null) dayExpenses = BigDecimal.ZERO;
@@ -271,7 +378,7 @@ public class BusinessReportsService {
                     .grossProfit(dayGross.setScale(2, RoundingMode.HALF_UP))
                     .expenses(dayExpenses.setScale(2, RoundingMode.HALF_UP))
                     .netProfit(dayNet.setScale(2, RoundingMode.HALF_UP))
-                    .billCount(dayInvoices.size())
+                    .billCount(dayInvoices.size() + dayDining.size())
                     .build());
         }
 
@@ -284,7 +391,7 @@ public class BusinessReportsService {
         LocalDate start = (startDate != null) ? startDate : LocalDate.now().withDayOfMonth(1);
         LocalDate end = (endDate != null) ? endDate : LocalDate.now();
 
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = resolveZone(shop);
         Instant startInstant = start.atStartOfDay(zone).toInstant();
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
@@ -317,6 +424,30 @@ public class BusinessReportsService {
             }
         }
 
+        // Merge Dine-In dishes sold from Restaurant & Dining module
+        List<Object[]> dishStats = diningOrderItemRepository.findDishSalesStatsBetween(shop.getId(), startInstant, endInstant);
+        for (Object[] r : dishStats) {
+            Long dishId = (Long) r[0];
+            String dishName = (String) r[1];
+            BigDecimal qty = (r[2] instanceof BigDecimal) ? (BigDecimal) r[2] : BigDecimal.valueOf(((Number) r[2]).longValue());
+            BigDecimal rev = (BigDecimal) r[3];
+            Long virtualDishKey = -(1000000L + (dishId != null ? dishId : 0L));
+
+            ProductProfitabilityStat stat = map.computeIfAbsent(virtualDishKey, k -> ProductProfitabilityStat.builder()
+                    .productId(virtualDishKey)
+                    .productName(dishName + " (🍽️ Dine-In)")
+                    .sku("DINE-IN-" + dishId)
+                    .quantitySold(BigDecimal.ZERO)
+                    .totalRevenue(BigDecimal.ZERO)
+                    .totalCost(BigDecimal.ZERO)
+                    .grossProfit(BigDecimal.ZERO)
+                    .marginPercent(0.0)
+                    .build());
+
+            stat.setQuantitySold(stat.getQuantitySold().add(qty));
+            stat.setTotalRevenue(stat.getTotalRevenue().add(rev));
+        }
+
         List<ProductProfitabilityStat> list = new ArrayList<>(map.values());
         for (ProductProfitabilityStat stat : list) {
             BigDecimal profit = stat.getTotalRevenue().subtract(stat.getTotalCost());
@@ -337,35 +468,56 @@ public class BusinessReportsService {
         LocalDate start = (startDate != null) ? startDate : LocalDate.now().withDayOfMonth(1);
         LocalDate end = (endDate != null) ? endDate : LocalDate.now();
 
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = resolveZone(shop);
         Instant startInstant = start.atStartOfDay(zone).toInstant();
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
-        List<Object[]> raw = invoiceRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant);
+        List<Object[]> rawInvoices = invoiceRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant);
+        List<Object[]> rawDining = diningPaymentRepository.sumRevenueByPaymentModeBetween(shop.getId(), startInstant, endInstant);
 
+        Map<String, BigDecimal> modeAmounts = new HashMap<>();
+        Map<String, Long> modeCounts = new HashMap<>();
         BigDecimal total = BigDecimal.ZERO;
-        for (Object[] r : raw) {
-            total = total.add((BigDecimal) r[1]);
+
+        for (Object[] r : rawInvoices) {
+            String mode = (r[0] != null ? ((String) r[0]).toUpperCase() : "CASH");
+            BigDecimal amount = (BigDecimal) r[1];
+            long count = (Long) r[2];
+
+            modeAmounts.put(mode, modeAmounts.getOrDefault(mode, BigDecimal.ZERO).add(amount));
+            modeCounts.put(mode, modeCounts.getOrDefault(mode, 0L) + count);
+            total = total.add(amount);
+        }
+
+        for (Object[] r : rawDining) {
+            String mode = (r[0] != null ? ((String) r[0]).toUpperCase() : "CASH");
+            BigDecimal amount = (BigDecimal) r[1];
+            long count = (Long) r[2];
+
+            modeAmounts.put(mode, modeAmounts.getOrDefault(mode, BigDecimal.ZERO).add(amount));
+            modeCounts.put(mode, modeCounts.getOrDefault(mode, 0L) + count);
+            total = total.add(amount);
         }
 
         List<PaymentModeStat> list = new ArrayList<>();
-        for (Object[] r : raw) {
-            String mode = (String) r[0];
-            BigDecimal amount = (BigDecimal) r[1];
-            long count = (Long) r[2];
+        for (Map.Entry<String, BigDecimal> entry : modeAmounts.entrySet()) {
+            String mode = entry.getKey();
+            BigDecimal amount = entry.getValue();
+            long count = modeCounts.getOrDefault(mode, 0L);
 
             double pct = (total.compareTo(BigDecimal.ZERO) > 0)
                     ? amount.divide(total, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
                     : 0.0;
 
             list.add(PaymentModeStat.builder()
-                    .paymentMode(mode != null ? mode : "CASH")
+                    .paymentMode(mode)
                     .totalAmount(amount.setScale(2, RoundingMode.HALF_UP))
                     .transactionCount(count)
                     .percentage(Math.round(pct * 10.0) / 10.0)
                     .build());
         }
 
+        list.sort((a, b) -> b.getTotalAmount().compareTo(a.getTotalAmount()));
         return list;
     }
 
@@ -407,11 +559,15 @@ public class BusinessReportsService {
         LocalDate start = (startDate != null) ? startDate : LocalDate.now().withDayOfMonth(1);
         LocalDate end = (endDate != null) ? endDate : LocalDate.now();
 
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = resolveZone(shop);
         Instant startInstant = start.atStartOfDay(zone).toInstant();
         Instant endInstant = end.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
 
         List<Invoice> invoices = invoiceRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant);
+        List<DiningBill> diningBills = diningBillRepository.findByShopIdAndCreatedAtBetween(shop.getId(), startInstant, endInstant).stream()
+                .filter(b -> !"CANCELLED".equalsIgnoreCase(b.getPaymentStatus()) &&
+                        (b.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 || "PAID".equalsIgnoreCase(b.getPaymentStatus())))
+                .collect(Collectors.toList());
 
         BigDecimal taxableTurnover = BigDecimal.ZERO;
         BigDecimal cgstTotal = BigDecimal.ZERO;
@@ -427,13 +583,31 @@ public class BusinessReportsService {
             totalTax = totalTax.add(inv.getTotalTax() != null ? inv.getTotalTax() : BigDecimal.ZERO);
         }
 
+        for (DiningBill bill : diningBills) {
+            taxableTurnover = taxableTurnover.add(bill.getSubtotal() != null ? bill.getSubtotal() : BigDecimal.ZERO);
+            BigDecimal billTax = bill.getTaxTotal() != null ? bill.getTaxTotal() : BigDecimal.ZERO;
+            totalTax = totalTax.add(billTax);
+            BigDecimal halfGst = billTax.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+            cgstTotal = cgstTotal.add(halfGst);
+            sgstTotal = sgstTotal.add(halfGst);
+        }
+
         return TaxGstSummaryResponse.builder()
                 .totalTaxableTurnover(taxableTurnover.setScale(2, RoundingMode.HALF_UP))
                 .cgstTotal(cgstTotal.setScale(2, RoundingMode.HALF_UP))
                 .sgstTotal(sgstTotal.setScale(2, RoundingMode.HALF_UP))
                 .igstTotal(igstTotal.setScale(2, RoundingMode.HALF_UP))
                 .totalTaxCollected(totalTax.setScale(2, RoundingMode.HALF_UP))
-                .totalTaxableInvoices(invoices.size())
+                .totalTaxableInvoices(invoices.size() + diningBills.size())
                 .build();
+    }
+
+    private ZoneId resolveZone(Shop shop) {
+        if (shop != null && shop.getTimezone() != null && !shop.getTimezone().isBlank()) {
+            try {
+                return ZoneId.of(shop.getTimezone());
+            } catch (Exception ignored) {}
+        }
+        return ZoneId.systemDefault();
     }
 }

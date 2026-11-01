@@ -247,6 +247,7 @@ public class DataInitializer implements CommandLineRunner {
                 new Object[]{"BILLING", "Invoicing & GST Billing", "Tax invoices, quotation and credit management", true, true},
                 new Object[]{"TABLE_MGMT", "Table & Room Management", "Hospitality table layouts and reservation tracking", true, false},
                 new Object[]{"ORDERS", "Kitchen & Service Orders", "Order ticket generation and kitchen displays", true, false},
+                new Object[]{"DINING", "Restaurant & Dining Management", "Tables, digital QR menu, kitchen order tickets, and dining sessions", true, false},
                 new Object[]{"REPORTS", "Analytics & Reports", "Financial statements, profit/loss and sales analytics", true, false}
         );
 

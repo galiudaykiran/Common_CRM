@@ -1,7 +1,10 @@
 package com.commoncrm.platform.module.shop.service;
 
+import com.commoncrm.platform.common.api.PageResponse;
 import com.commoncrm.platform.common.audit.service.AuditService;
 import com.commoncrm.platform.common.security.UserPrincipal;
+import com.commoncrm.platform.module.billing.repository.CustomerRepository;
+import com.commoncrm.platform.module.billing.repository.InvoiceRepository;
 import com.commoncrm.platform.module.shop.dto.ShopDetailResponse;
 import com.commoncrm.platform.module.shop.dto.ShopOwnerDashboardResponse;
 import com.commoncrm.platform.module.shop.dto.UpdateShopOwnerProfileRequest;
@@ -15,10 +18,17 @@ import com.commoncrm.platform.module.inventory.repository.InventoryRepository;
 import com.commoncrm.platform.module.inventory.repository.ProductRepository;
 import com.commoncrm.platform.module.user.entity.User;
 import com.commoncrm.platform.module.user.repository.UserRepository;
+import com.commoncrm.platform.module.dining.repository.DiningBillRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,7 +43,35 @@ public class ShopOwnerService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final CustomerRepository customerRepository;
     private final AuditService auditService;
+    private final DiningBillRepository diningBillRepository;
+
+    @Autowired
+    public ShopOwnerService(ShopContextService shopContextService,
+                            ShopRepository shopRepository,
+                            ShopConfigurationRepository shopConfigurationRepository,
+                            ShopModuleRepository shopModuleRepository,
+                            UserRepository userRepository,
+                            ProductRepository productRepository,
+                            InventoryRepository inventoryRepository,
+                            InvoiceRepository invoiceRepository,
+                            CustomerRepository customerRepository,
+                            AuditService auditService,
+                            DiningBillRepository diningBillRepository) {
+        this.shopContextService = shopContextService;
+        this.shopRepository = shopRepository;
+        this.shopConfigurationRepository = shopConfigurationRepository;
+        this.shopModuleRepository = shopModuleRepository;
+        this.userRepository = userRepository;
+        this.productRepository = productRepository;
+        this.inventoryRepository = inventoryRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.customerRepository = customerRepository;
+        this.auditService = auditService;
+        this.diningBillRepository = diningBillRepository;
+    }
 
     public ShopOwnerService(ShopContextService shopContextService,
                             ShopRepository shopRepository,
@@ -42,15 +80,11 @@ public class ShopOwnerService {
                             UserRepository userRepository,
                             ProductRepository productRepository,
                             InventoryRepository inventoryRepository,
+                            InvoiceRepository invoiceRepository,
+                            CustomerRepository customerRepository,
                             AuditService auditService) {
-        this.shopContextService = shopContextService;
-        this.shopRepository = shopRepository;
-        this.shopConfigurationRepository = shopConfigurationRepository;
-        this.shopModuleRepository = shopModuleRepository;
-        this.userRepository = userRepository;
-        this.productRepository = productRepository;
-        this.inventoryRepository = inventoryRepository;
-        this.auditService = auditService;
+        this(shopContextService, shopRepository, shopConfigurationRepository, shopModuleRepository,
+                userRepository, productRepository, inventoryRepository, invoiceRepository, customerRepository, auditService, null);
     }
 
     @Transactional(readOnly = true)
@@ -84,15 +118,69 @@ public class ShopOwnerService {
         long totalProducts = productRepository.countByShopId(shop.getId());
         long lowStockCount = inventoryRepository.countLowStock(shop.getId());
 
-        // Aggregated stats (Zero-memory database aggregation, extensible as product/sale entities populate)
+        // Determine store's effective timezone
+        ZoneId zone;
+        try {
+            zone = (shop.getTimezone() != null && !shop.getTimezone().isBlank())
+                    ? ZoneId.of(shop.getTimezone())
+                    : ZoneId.systemDefault();
+        } catch (Exception e) {
+            zone = ZoneId.systemDefault();
+        }
+
+        LocalDate today = LocalDate.now(zone);
+        Instant startOfToday = today.atStartOfDay(zone).toInstant();
+        Instant endOfToday = today.plusDays(1).atStartOfDay(zone).toInstant().minusNanos(1);
+
+        LocalDate yesterday = today.minusDays(1);
+        Instant startOfYesterday = yesterday.atStartOfDay(zone).toInstant();
+        Instant endOfYesterday = today.atStartOfDay(zone).toInstant().minusNanos(1);
+
+        BigDecimal todayRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), startOfToday, endOfToday);
+        if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
+        long todaySalesCount = invoiceRepository.countCompletedBetween(shop.getId(), startOfToday, endOfToday);
+
+        if (diningBillRepository != null) {
+            BigDecimal todayDining = diningBillRepository.sumPaidRevenueBetween(shop.getId(), startOfToday, endOfToday);
+            if (todayDining != null) todayRevenue = todayRevenue.add(todayDining);
+            todaySalesCount += diningBillRepository.countPaidBillsBetween(shop.getId(), startOfToday, endOfToday);
+        }
+
+        BigDecimal yesterdayRevenue = invoiceRepository.sumRevenueBetween(shop.getId(), startOfYesterday, endOfYesterday);
+        if (yesterdayRevenue == null) yesterdayRevenue = BigDecimal.ZERO;
+
+        if (diningBillRepository != null) {
+            BigDecimal yesterdayDining = diningBillRepository.sumPaidRevenueBetween(shop.getId(), startOfYesterday, endOfYesterday);
+            if (yesterdayDining != null) yesterdayRevenue = yesterdayRevenue.add(yesterdayDining);
+        }
+
+        Double revenueGrowthPercent = null;
+        if (yesterdayRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            revenueGrowthPercent = todayRevenue.subtract(yesterdayRevenue)
+                    .divide(yesterdayRevenue, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(1, RoundingMode.HALF_UP)
+                    .doubleValue();
+        } else if (todayRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            revenueGrowthPercent = 100.0;
+        } else {
+            revenueGrowthPercent = 0.0;
+        }
+
+        long activeCustomers = customerRepository.countByShopId(shop.getId());
+        long pendingOrders = invoiceRepository.countPendingOrders(shop.getId());
+
+        // Aggregated stats bound to real database records
         ShopOwnerDashboardResponse.ShopStatsDto stats = ShopOwnerDashboardResponse.ShopStatsDto.builder()
-                .todaySalesCount(0L)
-                .todayRevenue(BigDecimal.ZERO)
+                .todaySalesCount(todaySalesCount)
+                .todayRevenue(todayRevenue.setScale(2, RoundingMode.HALF_UP))
+                .yesterdayRevenue(yesterdayRevenue.setScale(2, RoundingMode.HALF_UP))
+                .revenueGrowthPercent(revenueGrowthPercent)
                 .totalProducts(totalProducts)
                 .lowStockCount(lowStockCount)
                 .activeEmployees(activeEmployees)
-                .activeCustomers(0L)
-                .pendingOrders(0L)
+                .activeCustomers(activeCustomers)
+                .pendingOrders(pendingOrders)
                 .build();
 
         return ShopOwnerDashboardResponse.builder()
@@ -124,6 +212,13 @@ public class ShopOwnerService {
     public List<com.commoncrm.platform.common.audit.dto.AuditLogResponse> getStoreAuditLogs(UserPrincipal principal) {
         Shop shop = shopContextService.requireCurrentShop(principal);
         return auditService.getAllActivityForTenant(shop.getTenant().getId());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<com.commoncrm.platform.common.audit.dto.AuditLogResponse> getStoreAuditLogs(
+            UserPrincipal principal, String action, String resourceType, String actorUsername, Pageable pageable) {
+        Shop shop = shopContextService.requireCurrentShop(principal);
+        return auditService.getAuditLogsForTenant(shop.getTenant().getId(), action, resourceType, actorUsername, pageable);
     }
 
     @Transactional(readOnly = true)

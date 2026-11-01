@@ -15,7 +15,9 @@ import {
   AlertTriangle,
   ArrowRight,
   ChevronRight,
+  ChevronLeft,
   TrendingUp,
+  TrendingDown,
   Settings,
   Shield,
   Layers,
@@ -48,25 +50,45 @@ export const ShopDashboardPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Store Audits Modal State
+  // Store Audits Modal State & Server Pagination (default page = 0, size = 10)
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditLogsList, setAuditLogsList] = useState<AuditLogItem[]>([]);
   const [loadingAudits, setLoadingAudits] = useState(false);
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState('ALL');
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditSize] = useState(10);
+  const [auditTotalPages, setAuditTotalPages] = useState(0);
+  const [auditTotalElements, setAuditTotalElements] = useState(0);
 
-  const handleOpenAuditsModal = async () => {
-    setShowAuditModal(true);
+  const fetchAuditLogs = async (targetPage = auditPage, query = auditSearchQuery, action = auditActionFilter) => {
     setLoadingAudits(true);
     try {
-      const logs = await shopOwnerApi.getStoreAuditLogs();
-      setAuditLogsList(logs || []);
+      const pageRes = await shopOwnerApi.getStoreAuditLogs({
+        page: targetPage,
+        size: auditSize,
+        action: action === 'ALL' ? undefined : action,
+        actorUsername: query.trim() || undefined,
+      });
+      setAuditLogsList(pageRes?.content || []);
+      setAuditTotalPages(pageRes?.totalPages || 0);
+      setAuditTotalElements(pageRes?.totalElements || 0);
+      setAuditPage(targetPage);
     } catch (err) {
       console.error('Failed to load store audit logs', err);
       setAuditLogsList((data?.recentActivity as any) || []);
+      setAuditTotalPages(1);
+      setAuditTotalElements(data?.recentActivity?.length || 0);
+      setAuditPage(0);
     } finally {
       setLoadingAudits(false);
     }
+  };
+
+  const handleOpenAuditsModal = () => {
+    setShowAuditModal(true);
+    setAuditPage(0);
+    fetchAuditLogs(0, auditSearchQuery, auditActionFilter);
   };
 
   const navigate = useNavigate();
@@ -257,6 +279,10 @@ export const ShopDashboardPage: React.FC = () => {
           1. HERO STORE SHOWCASE BANNER
           ==================================================================== */}
       <div className="dashboard-hero-banner">
+        {/* Transparent Vector Background Watermark & Ambient Glow */}
+        <div className="dashboard-hero-watermark" aria-hidden="true" />
+        <div className="dashboard-hero-ambient-glow" aria-hidden="true" />
+
         <div className="dashboard-hero-left">
           <div className="dashboard-hero-icon" title="Storefront">
             <Store size={32} style={{ color: 'var(--accent-primary)' }} />
@@ -265,6 +291,9 @@ export const ShopDashboardPage: React.FC = () => {
             <h1>
               <span>{data.shopName || 'Nagaraju Fancy Store'}</span>
               <span className="dashboard-hero-badge">{data.shopCode || 'NAG_11'}</span>
+              <span className="dashboard-status-live-pill">
+                <span className="dashboard-live-dot" /> {data.status || 'ACTIVE'}
+              </span>
             </h1>
             <div className="dashboard-hero-subtitle">
               {data.businessTypeName ? data.businessTypeName.toUpperCase() : 'DRESS & FASHION SHOP'}
@@ -290,32 +319,15 @@ export const ShopDashboardPage: React.FC = () => {
         </div>
 
         <div className="dashboard-hero-right">
-          {/* Frosted Status Card */}
-          <div className="dashboard-hero-status-card">
-            <div className="status-card-row">
-              <span className="status-card-label">Business Status</span>
-              <span className="badge badge-success" style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px' }}>
-                {data.status || 'ACTIVE'}
-              </span>
-            </div>
-            <div className="status-card-row">
-              <span className="status-card-label">Shop Owner</span>
-              <span className="status-card-val">
-                {data.tenantName ? data.tenantName.split(' ')[0] : 'Nagaraju'}
-              </span>
-            </div>
-            <div className="status-card-row">
-              <span className="status-card-label">Plan</span>
-              <span className="status-card-val">Enterprise</span>
-            </div>
-            <button
-              onClick={() => navigate('/shop/profile')}
-              className="status-card-btn"
-            >
-              <span>Store Profile &amp; Tax</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
+          {/* Quick Store Profile Action */}
+          <button
+            onClick={() => navigate('/shop/profile')}
+            className="dashboard-hero-quick-btn"
+            title="Configure Store Profile, GST & Tax Details"
+          >
+            <span>Store Profile &amp; Tax</span>
+            <ArrowRight size={13} />
+          </button>
 
           {/* Live Digital Clock */}
           <div className="dashboard-hero-clock-box">
@@ -406,49 +418,75 @@ export const ShopDashboardPage: React.FC = () => {
           ==================================================================== */}
       <div className="dashboard-kpi-grid">
         {/* KPI 1: TODAY'S REVENUE */}
-        <div className="dashboard-kpi-card">
-          <div className="dashboard-kpi-header">
-            <div className="dashboard-kpi-title-wrap">
-              <div className="dashboard-kpi-icon-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
-                ₹
+        {(() => {
+          const todayRev = data.stats?.todayRevenue ?? 0;
+          const yestRev = data.stats?.yesterdayRevenue ?? 0;
+          const growthPct = data.stats?.revenueGrowthPercent ?? 0;
+          const isUp = growthPct >= 0;
+          const isNegative = growthPct < 0;
+          let trendBadgeText = '~ 0%';
+          if (growthPct > 0) trendBadgeText = `+${growthPct.toFixed(1)}%`;
+          else if (growthPct < 0) trendBadgeText = `${growthPct.toFixed(1)}%`;
+          else if (todayRev > 0 && yestRev === 0) trendBadgeText = '+100%';
+
+          return (
+            <div className="dashboard-kpi-card dashboard-kpi-revenue-card">
+              <div className="dashboard-kpi-header">
+                <div className="dashboard-kpi-title-wrap">
+                  <div className="dashboard-kpi-icon-pill kpi-icon-revenue">
+                    ₹
+                  </div>
+                  <span className="dashboard-kpi-title">TODAY'S REVENUE</span>
+                </div>
+                <span className="dashboard-kpi-filter-tag">
+                  <span className="kpi-live-dot" /> Today
+                </span>
               </div>
-              <span className="dashboard-kpi-title">TODAY'S REVENUE</span>
-            </div>
-            <span className="dashboard-kpi-filter-tag">Today ∨</span>
-          </div>
 
-          <div className="dashboard-kpi-value-row">
-            <div className="dashboard-kpi-val">
-              {formatCurrency(data.stats?.todayRevenue || 0)}
-            </div>
-            <span className="dashboard-kpi-trend-badge trend-green">
-              <TrendingUp size={11} /> 0%
-            </span>
-          </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-            {data.stats?.todaySalesCount || 0} orders processed today
-          </div>
+              <div className="dashboard-kpi-value-row">
+                <div className="dashboard-kpi-val kpi-val-highlight">
+                  {formatCurrency(todayRev)}
+                </div>
+                <span className={`dashboard-kpi-trend-badge ${isNegative ? 'trend-red' : 'trend-green'}`}>
+                  {isUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />} {trendBadgeText}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>{data.stats?.todaySalesCount || 0}</strong> orders processed today
+              </div>
 
-          {/* Sparkline: Green vertical bars */}
-          <div className="dashboard-kpi-sparkline">
-            <svg viewBox="0 0 160 36" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              <rect x="0" y="24" width="7" height="12" rx="2" fill="#a7f3d0" />
-              <rect x="11" y="26" width="7" height="10" rx="2" fill="#a7f3d0" />
-              <rect x="22" y="20" width="7" height="16" rx="2" fill="#6ee7b7" />
-              <rect x="33" y="28" width="7" height="8" rx="2" fill="#a7f3d0" />
-              <rect x="44" y="16" width="7" height="20" rx="2" fill="#34d399" />
-              <rect x="55" y="12" width="7" height="24" rx="2" fill="#10b981" />
-              <rect x="66" y="8" width="7" height="28" rx="2" fill="#059669" />
-              <rect x="77" y="18" width="7" height="18" rx="2" fill="#34d399" />
-              <rect x="88" y="22" width="7" height="14" rx="2" fill="#6ee7b7" />
-              <rect x="99" y="10" width="7" height="26" rx="2" fill="#10b981" />
-              <rect x="110" y="6" width="7" height="30" rx="2" fill="#059669" />
-              <rect x="121" y="14" width="7" height="22" rx="2" fill="#34d399" />
-              <rect x="132" y="20" width="7" height="16" rx="2" fill="#6ee7b7" />
-              <rect x="143" y="25" width="7" height="11" rx="2" fill="#a7f3d0" />
-            </svg>
-          </div>
-        </div>
+              {/* Enhanced Sparkline with Real Responsive Glow */}
+              <div className="dashboard-kpi-sparkline">
+                <svg viewBox="0 0 160 36" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="revBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                    <linearGradient id="revBarFaint" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#34d399" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.2" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="0" y="24" width="7" height="12" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="11" y="26" width="7" height="10" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="22" y="20" width="7" height="16" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="33" y="28" width="7" height="8" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="44" y="16" width="7" height="20" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="55" y="12" width="7" height="24" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="66" y="8" width="7" height="28" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="77" y="18" width="7" height="18" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="88" y="22" width="7" height="14" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="99" y="10" width="7" height="26" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="110" y="6" width="7" height="30" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="121" y="14" width="7" height="22" rx="2" fill="url(#revBarGrad)" />
+                  <rect x="132" y="20" width="7" height="16" rx="2" fill="url(#revBarFaint)" />
+                  <rect x="143" y="12" width="7" height="24" rx="2" fill="url(#revBarGrad)" />
+                </svg>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* KPI 2: CATALOG PRODUCTS */}
         <div className="dashboard-kpi-card">
@@ -1187,7 +1225,11 @@ export const ShopDashboardPage: React.FC = () => {
                 <input
                   placeholder="Search by username, action, or description..."
                   value={auditSearchQuery}
-                  onChange={(e) => setAuditSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setAuditSearchQuery(q);
+                    fetchAuditLogs(0, q, auditActionFilter);
+                  }}
                   style={{
                     width: '100%',
                     padding: '0.45rem 0.8rem 0.45rem 2rem',
@@ -1200,11 +1242,14 @@ export const ShopDashboardPage: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {['ALL', 'LOGIN', 'EXPENSE', 'PRODUCT', 'INVENTORY', 'BILL'].map((f) => (
                   <button
                     key={f}
-                    onClick={() => setAuditActionFilter(f)}
+                    onClick={() => {
+                      setAuditActionFilter(f);
+                      fetchAuditLogs(0, auditSearchQuery, f);
+                    }}
                     style={{
                       padding: '4px 10px',
                       borderRadius: '6px',
@@ -1230,77 +1275,59 @@ export const ShopDashboardPage: React.FC = () => {
                   <div className="spinner" style={{ margin: '0 auto 0.75rem' }} />
                   Loading store audit records...
                 </div>
-              ) : (() => {
-                const filtered = auditLogsList.filter((log) => {
-                  const matchQuery =
-                    !auditSearchQuery ||
-                    (log.actorUsername && log.actorUsername.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                    (log.action && log.action.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                    (log.newValue && log.newValue.toLowerCase().includes(auditSearchQuery.toLowerCase()));
-                  const matchFilter =
-                    auditActionFilter === 'ALL' ||
-                    (log.action && log.action.toUpperCase().includes(auditActionFilter));
-                  return matchQuery && matchFilter;
-                });
+              ) : auditLogsList.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Shield size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>No audit events found</div>
+                  <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Try adjusting your search query or filters.</p>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '0.65rem 0.75rem' }}>Timestamp</th>
+                      <th style={{ padding: '0.65rem 0.75rem' }}>Actor</th>
+                      <th style={{ padding: '0.65rem 0.75rem' }}>Action</th>
+                      <th style={{ padding: '0.65rem 0.75rem' }}>Details / Change</th>
+                      <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>IP Address</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogsList.map((log, idx) => {
+                      const isLogin = (log.action || '').includes('LOGIN');
+                      const isExpense = (log.action || '').includes('EXPENSE');
+                      const isProduct = (log.action || '').includes('PRODUCT') || (log.action || '').includes('STOCK');
+                      const badgeColor = isLogin ? '#6366f1' : isExpense ? '#f59e0b' : isProduct ? '#10b981' : '#0284c7';
+                      const badgeBg = isLogin ? 'rgba(99, 102, 241, 0.12)' : isExpense ? 'rgba(245, 158, 11, 0.12)' : isProduct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(2, 132, 199, 0.12)';
 
-                if (filtered.length === 0) {
-                  return (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Shield size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>No audit events found</div>
-                      <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Try adjusting your search query or filters.</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                        <th style={{ padding: '0.65rem 0.75rem' }}>Timestamp</th>
-                        <th style={{ padding: '0.65rem 0.75rem' }}>Actor</th>
-                        <th style={{ padding: '0.65rem 0.75rem' }}>Action</th>
-                        <th style={{ padding: '0.65rem 0.75rem' }}>Details / Change</th>
-                        <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>IP Address</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((log, idx) => {
-                        const isLogin = (log.action || '').includes('LOGIN');
-                        const isExpense = (log.action || '').includes('EXPENSE');
-                        const isProduct = (log.action || '').includes('PRODUCT') || (log.action || '').includes('STOCK');
-                        const badgeColor = isLogin ? '#6366f1' : isExpense ? '#f59e0b' : isProduct ? '#10b981' : '#0284c7';
-                        const badgeBg = isLogin ? 'rgba(99, 102, 241, 0.12)' : isExpense ? 'rgba(245, 158, 11, 0.12)' : isProduct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(2, 132, 199, 0.12)';
-
-                        return (
-                          <tr key={log.id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.74rem' }}>
-                              {log.createdAt ? new Date(log.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              @{log.actorUsername || 'system'}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.75rem' }}>
-                              <span style={{ padding: '2px 8px', borderRadius: '4px', background: badgeBg, color: badgeColor, fontSize: '0.68rem', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
-                                {log.action}
-                              </span>
-                            </td>
-                            <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-primary)', maxWidth: '360px', wordBreak: 'break-word' }}>
-                              {log.newValue || log.resourceType || '—'}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem' }}>
-                              {log.ipAddress || '127.0.0.1'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                );
-              })()}
+                      return (
+                        <tr key={log.id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td style={{ padding: '0.65rem 0.75rem', whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.74rem' }}>
+                            {log.createdAt ? new Date(log.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            @{log.actorUsername || 'system'}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', background: badgeBg, color: badgeColor, fontSize: '0.68rem', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-primary)', maxWidth: '360px', wordBreak: 'break-word' }}>
+                            {log.newValue || log.resourceType || '—'}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem' }}>
+                            {log.ipAddress || '127.0.0.1'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal Footer with Pagination Controls */}
             <div
               style={{
                 padding: '0.85rem 1.5rem',
@@ -1309,18 +1336,76 @@ export const ShopDashboardPage: React.FC = () => {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
                 fontSize: '0.74rem',
                 color: 'var(--text-muted)',
               }}
             >
-              <span>Showing {auditLogsList.length} store audit records</span>
-              <button
-                onClick={() => setShowAuditModal(false)}
-                className="btn btn-secondary"
-                style={{ padding: '0.4rem 1rem', fontSize: '0.76rem' }}
-              >
-                Close Audit Log
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>
+                  Showing {auditLogsList.length} of <strong>{auditTotalElements}</strong> records
+                  {auditTotalPages > 1 && ` (Page ${auditPage + 1} of ${auditTotalPages})`}
+                </span>
+              </div>
+
+              {/* Server Pagination Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {auditTotalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button
+                      disabled={auditPage === 0 || loadingAudits}
+                      onClick={() => fetchAuditLogs(auditPage - 1)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '2px' }}
+                      title="Previous Page"
+                    >
+                      <ChevronLeft size={13} /> Prev
+                    </button>
+                    {Array.from({ length: Math.min(5, auditTotalPages) }, (_, i) => {
+                      let p = i;
+                      if (auditTotalPages > 5) {
+                        if (auditPage >= 3 && auditPage <= auditTotalPages - 3) {
+                          p = auditPage - 2 + i;
+                        } else if (auditPage > auditTotalPages - 3) {
+                          p = auditTotalPages - 5 + i;
+                        }
+                      }
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => fetchAuditLogs(p)}
+                          className={`btn btn-sm ${auditPage === p ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{
+                            padding: '0.3rem 0.65rem',
+                            fontSize: '0.72rem',
+                            fontWeight: auditPage === p ? 700 : 500,
+                            minWidth: '28px',
+                          }}
+                        >
+                          {p + 1}
+                        </button>
+                      );
+                    })}
+                    <button
+                      disabled={auditPage >= auditTotalPages - 1 || loadingAudits}
+                      onClick={() => fetchAuditLogs(auditPage + 1)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '2px' }}
+                      title="Next Page"
+                    >
+                      Next <ChevronRight size={13} />
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowAuditModal(false)}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 1rem', fontSize: '0.76rem' }}
+                >
+                  Close Audit Log
+                </button>
+              </div>
             </div>
           </div>
         </div>

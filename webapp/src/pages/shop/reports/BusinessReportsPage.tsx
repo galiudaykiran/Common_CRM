@@ -33,6 +33,7 @@ import {
   ChevronRight,
   ShoppingCart,
   ArrowUpDown,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../../../api/reportsApi';
@@ -115,9 +116,14 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
       end = today;
     }
 
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
-    setStartDate(fmt(start));
-    setEndDate(fmt(end));
+    const fmtLocal = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    setStartDate(fmtLocal(start));
+    setEndDate(fmtLocal(end));
   };
 
   // Reload data whenever dates change
@@ -373,28 +379,56 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
         </div>
 
         {/* Right Header Comparison Card */}
-        <div className="reports-growth-badge-card">
-          <div className="growth-badge-left">
-            <div className="growth-badge-date-pill">
-              <Calendar size={13} style={{ color: 'var(--accent-primary)' }} />
-              <span>
-                {startDate} - {endDate}
-              </span>
+        {(() => {
+          const growthPct = summary?.revenueGrowthPercent ?? 0;
+          const currentGross = summary?.grossRevenue ?? 0;
+          const prevGross = summary?.previousGrossRevenue ?? 0;
+          const isUp = growthPct >= 0;
+          let growthLabel = '0.0% vs Prev Period';
+          if (growthPct > 0) {
+            growthLabel = `+${growthPct.toFixed(1)}% Revenue Growth`;
+          } else if (growthPct < 0) {
+            growthLabel = `${growthPct.toFixed(1)}% vs Prev Period`;
+          } else if (currentGross > 0 && prevGross === 0) {
+            growthLabel = `Turnover ₹${fmt(currentGross)}`;
+          } else {
+            growthLabel = `Turnover ₹${fmt(currentGross)}`;
+          }
+
+          const isPositive = growthPct > 0 || (currentGross > 0 && prevGross === 0);
+          const isNegative = growthPct < 0;
+
+          return (
+            <div className="reports-growth-badge-card">
+              <div className="growth-badge-left">
+                <div className="growth-badge-date-pill">
+                  <Calendar size={13} style={{ color: 'var(--accent-primary)' }} />
+                  <span>
+                    {startDate} — {endDate}
+                  </span>
+                </div>
+                <div className="growth-badge-vs">
+                  {preset === 'TODAY' ? 'vs yesterday' : 'vs previous period'}
+                </div>
+                <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className={isNegative ? 'growth-pill-red' : 'growth-pill-green'}>
+                    {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    <span>{growthLabel}</span>
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
+                  Turnover: ₹{fmt(currentGross)} &bull; {summary?.totalInvoicesCount || 0} bills
+                </div>
+              </div>
+              <div
+                className={`growth-badge-icon-box ${isNegative ? 'icon-box-negative' : 'icon-box-positive'}`}
+                title="Audited Period Financial Performance"
+              >
+                {isUp ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+              </div>
             </div>
-            <div className="growth-badge-vs">
-              vs previous period
-            </div>
-            <div style={{ marginTop: '3px' }}>
-              <span className="growth-pill-green">
-                <TrendingUp size={12} />
-                <span>+12.5% Revenue Growth</span>
-              </span>
-            </div>
-          </div>
-          <div className="growth-badge-icon-box" title="Period Growth Analytics">
-            <TrendingUp size={20} />
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Date Filter Pills & Actions */}
@@ -677,6 +711,100 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
               </div>
             </div>
           </div>
+
+          {/* ===================================================================
+              CHANNEL CONTRIBUTION BREAKDOWN (RETAIL POS vs RESTAURANT & DINING)
+              =================================================================== */}
+          {(summary?.diningRevenue !== undefined || summary?.retailRevenue !== undefined) && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.25rem',
+            }}>
+              <div style={{
+                background: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--border-subtle, rgba(226, 232, 240, 0.8))',
+                borderRadius: '12px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    color: '#6366f1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    flexShrink: 0,
+                  }}>
+                    🛍️
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+                      Retail POS Channel
+                    </div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      ₹{fmt(summary?.retailRevenue ?? 0)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span className="reports-pill-badge pill-info" style={{ fontWeight: 600 }}>
+                    {summary?.retailInvoicesCount ?? 0} Invoices
+                  </span>
+                </div>
+              </div>
+
+              <div style={{
+                background: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--border-subtle, rgba(226, 232, 240, 0.8))',
+                borderRadius: '12px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    flexShrink: 0,
+                  }}>
+                    🍽️
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+                      Restaurant &amp; Dining Channel
+                    </div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#d97706' }}>
+                      ₹{fmt(summary?.diningRevenue ?? 0)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span className="reports-pill-badge pill-warning" style={{ fontWeight: 600 }}>
+                    {summary?.diningBillsCount ?? 0} Settled Bills
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ===================================================================
               MIDDLE ROW: SALES & PROFIT DUAL-AXIS TREND (LEFT) & TENDER DONUT (RIGHT)
@@ -987,56 +1115,96 @@ export const BusinessReportsPage: React.FC<BusinessReportsPageProps> = ({ autoOp
                         </td>
                       </tr>
                     ) : (
-                      topProducts.map((p, idx) => (
-                        <tr key={p.productId || idx}>
-                          <td>
-                            <span className="rank-badge" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 800 }}>
-                              {String(idx + 1).padStart(2, '0')}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)', flexShrink: 0 }}>
-                                <Package size={14} />
-                              </div>
-                              <div>
-                                <div
-                                  onClick={() => navigate(`/shop/products?search=${encodeURIComponent(p.productName)}`)}
-                                  style={{ fontWeight: 700, color: 'var(--accent-primary)', cursor: 'pointer' }}
-                                  title="View product in catalog"
-                                >
-                                  {p.productName} ↗
-                                </div>
-                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>SKU: {p.sku}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{p.quantitySold}</td>
-                          <td style={{ fontWeight: 700 }}>₹{fmt(p.totalRevenue)}</td>
-                          <td style={{ fontWeight: 800, color: '#059669' }}>+₹{fmt(p.grossProfit)}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span className="reports-pill-badge pill-success">{p.marginPercent}%</span>
-                              <button
-                                onClick={() => navigate(`/shop/pos?barcode=${encodeURIComponent(p.sku || '')}`)}
-                                className="btn btn-outline"
-                                style={{
-                                  padding: '3px 8px',
-                                  fontSize: '10px',
-                                  display: 'inline-flex',
+                      topProducts.map((p, idx) => {
+                        const isDineIn = p.sku?.startsWith('DINE-IN-') || p.productName?.includes('🍽️');
+                        const displayName = p.productName.replace(' (🍽️ Dine-In)', '');
+                        return (
+                          <tr key={p.productId || idx}>
+                            <td>
+                              <span className="rank-badge" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 800 }}>
+                                {String(idx + 1).padStart(2, '0')}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '6px',
+                                  background: isDineIn ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.1)',
+                                  display: 'flex',
                                   alignItems: 'center',
-                                  gap: '3px',
-                                  color: '#8b5cf6',
-                                  cursor: 'pointer',
-                                }}
-                                title="Sell at POS"
-                              >
-                                <ShoppingCart size={11} /> POS
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                                  justifyContent: 'center',
+                                  color: isDineIn ? '#d97706' : 'var(--accent-primary)',
+                                  flexShrink: 0
+                                }}>
+                                  {isDineIn ? <UtensilsCrossed size={14} /> : <Package size={14} />}
+                                </div>
+                                <div>
+                                  <div
+                                    onClick={() => navigate(isDineIn ? '/shop/dining/menu' : `/shop/products?search=${encodeURIComponent(p.productName)}`)}
+                                    style={{ fontWeight: 700, color: isDineIn ? '#b45309' : 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                    title={isDineIn ? 'View dining dish in menu' : 'View product in catalog'}
+                                  >
+                                    <span>{displayName}</span>
+                                    {isDineIn && (
+                                      <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                        DINE-IN
+                                      </span>
+                                    )}
+                                    <span>↗</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>SKU: {p.sku}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{p.quantitySold}</td>
+                            <td style={{ fontWeight: 700 }}>₹{fmt(p.totalRevenue)}</td>
+                            <td style={{ fontWeight: 800, color: '#059669' }}>+₹{fmt(p.grossProfit)}</td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span className="reports-pill-badge pill-success">{p.marginPercent}%</span>
+                                {isDineIn ? (
+                                  <button
+                                    onClick={() => navigate('/shop/dining/orders')}
+                                    className="btn btn-outline"
+                                    style={{
+                                      padding: '3px 8px',
+                                      fontSize: '10px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      color: '#d97706',
+                                      borderColor: 'rgba(245, 158, 11, 0.4)',
+                                      cursor: 'pointer',
+                                    }}
+                                    title="View dining orders"
+                                  >
+                                    <UtensilsCrossed size={11} /> Dining
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => navigate(`/shop/pos?barcode=${encodeURIComponent(p.sku || '')}`)}
+                                    className="btn btn-outline"
+                                    style={{
+                                      padding: '3px 8px',
+                                      fontSize: '10px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      color: '#8b5cf6',
+                                      cursor: 'pointer',
+                                    }}
+                                    title="Sell at POS"
+                                  >
+                                    <ShoppingCart size={11} /> POS
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

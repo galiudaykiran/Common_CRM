@@ -99,6 +99,15 @@ public class AuditService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<AuditLogResponse> getAuditLogsForTenant(Long tenantId, String action, String resourceType, String actorUsername, Pageable pageable) {
+        if (tenantId == null) {
+            return PageResponse.from(Page.empty(pageable));
+        }
+        Page<AuditLog> page = auditLogRepository.searchTenantLogs(tenantId, action, resourceType, actorUsername, pageable);
+        return PageResponse.from(page.map(this::mapToDto));
+    }
+
     private AuditLogResponse mapToDto(AuditLog audit) {
         return AuditLogResponse.builder()
                 .id(audit.getId())

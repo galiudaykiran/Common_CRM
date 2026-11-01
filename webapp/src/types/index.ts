@@ -220,6 +220,8 @@ export interface ShopOwnerDashboard {
   stats: {
     todaySalesCount: number;
     todayRevenue: number;
+    yesterdayRevenue?: number;
+    revenueGrowthPercent?: number;
     totalProducts: number;
     lowStockCount: number;
     activeEmployees: number;
@@ -703,6 +705,13 @@ export interface FinancialSummary {
   isNetProfit: boolean;
   totalGstCollected: number;
   averageBillValue: number;
+  previousGrossRevenue?: number;
+  revenueGrowthPercent?: number;
+  previousInvoicesCount?: number;
+  retailRevenue?: number;
+  retailInvoicesCount?: number;
+  diningRevenue?: number;
+  diningBillsCount?: number;
 }
 
 export interface DailyTrendPoint {

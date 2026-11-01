@@ -38,6 +38,15 @@ public class BusinessReportsDto {
 
         private BigDecimal totalGstCollected;
         private BigDecimal averageBillValue;
+        private BigDecimal previousGrossRevenue;
+        private Double revenueGrowthPercent;
+        private long previousInvoicesCount;
+
+        // Channel breakdown
+        private BigDecimal diningRevenue;
+        private long diningBillsCount;
+        private BigDecimal retailRevenue;
+        private long retailInvoicesCount;
     }
 
     @Data

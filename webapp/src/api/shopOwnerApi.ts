@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { ApiResponse, ShopOwnerDashboard, ShopDetail, UpdateShopOwnerProfileRequest } from '../types';
+import { ApiResponse, PageResponse, ShopOwnerDashboard, ShopDetail, UpdateShopOwnerProfileRequest, AuditLogItem } from '../types';
 
 export const shopOwnerApi = {
   getDashboard: async (): Promise<ShopOwnerDashboard> => {
@@ -22,8 +22,14 @@ export const shopOwnerApi = {
     return res.data.data;
   },
 
-  getStoreAuditLogs: async (): Promise<import('../types').AuditLogItem[]> => {
-    const res = await apiClient.get<ApiResponse<import('../types').AuditLogItem[]>>('/shop/audit-logs');
+  getStoreAuditLogs: async (params?: {
+    action?: string;
+    resourceType?: string;
+    actorUsername?: string;
+    page?: number;
+    size?: number;
+  }): Promise<PageResponse<AuditLogItem>> => {
+    const res = await apiClient.get<ApiResponse<PageResponse<AuditLogItem>>>('/shop/audit-logs', { params });
     return res.data.data;
   },
 };

@@ -457,6 +457,43 @@ public class ShopService {
                 .build();
     }
 
+    @Transactional
+    public ShopDetailResponse updateShopModules(Long id, List<Long> enabledModuleIds) {
+        Shop shop = shopRepository.findWithDetailsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", "id", id));
+
+        List<ShopModule> currentShopModules = shopModuleRepository.findAllWithModuleByShopId(id);
+        Set<Long> targetModuleIds = enabledModuleIds != null ? new HashSet<>(enabledModuleIds) : Collections.emptySet();
+
+        for (ShopModule sm : currentShopModules) {
+            if (!targetModuleIds.contains(sm.getModule().getId())) {
+                shopModuleRepository.delete(sm);
+            }
+        }
+
+        Set<Long> existingModuleIds = currentShopModules.stream()
+                .filter(sm -> targetModuleIds.contains(sm.getModule().getId()))
+                .map(sm -> sm.getModule().getId())
+                .collect(Collectors.toSet());
+
+        for (Long modId : targetModuleIds) {
+            if (!existingModuleIds.contains(modId)) {
+                Module module = moduleRepository.findById(modId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Module", "id", modId));
+                ShopModule sm = ShopModule.builder()
+                        .shop(shop)
+                        .module(module)
+                        .enabled(true)
+                        .enabledAt(Instant.now())
+                        .build();
+                shopModuleRepository.save(sm);
+            }
+        }
+
+        auditAction("ADMIN_UPDATED_SHOP_MODULES", shop.getId().toString(), null, "Updated enabled modules for shop " + shop.getName());
+        return getShopDetails(id);
+    }
+
     private ShopDetailResponse mapToDetailDto(Shop shop, ShopConfiguration config, List<ShopModule> modules, User ownerUser) {
         ShopDetailResponse.ShopConfigDto configDto = null;
         if (config != null) {

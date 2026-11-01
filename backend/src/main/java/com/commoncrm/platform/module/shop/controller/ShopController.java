@@ -99,4 +99,14 @@ public class ShopController {
         ShopDetailResponse response = shopService.updateShopOwnership(id, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Shop ownership updated successfully"));
     }
+
+    @PutMapping("/{id}/modules")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Update enabled modules for a shop")
+    public ResponseEntity<ApiResponse<ShopDetailResponse>> updateShopModules(
+            @PathVariable Long id,
+            @RequestBody java.util.List<Long> moduleIds) {
+        ShopDetailResponse response = shopService.updateShopModules(id, moduleIds);
+        return ResponseEntity.ok(ApiResponse.success(response, "Shop modules updated successfully"));
+    }
 }

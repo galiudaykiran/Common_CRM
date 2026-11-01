@@ -45,10 +45,15 @@ public class ShopOwnerController {
 
     @GetMapping("/audit-logs")
     @PreAuthorize("hasRole('SHOP_OWNER') or hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Get complete chronological audit trail for current store")
-    public ResponseEntity<ApiResponse<java.util.List<com.commoncrm.platform.common.audit.dto.AuditLogResponse>>> getStoreAuditLogs(
-            @AuthenticationPrincipal UserPrincipal principal) {
-        java.util.List<com.commoncrm.platform.common.audit.dto.AuditLogResponse> response = shopOwnerService.getStoreAuditLogs(principal);
+    @Operation(summary = "Get paginated audit trail for current store")
+    public ResponseEntity<ApiResponse<com.commoncrm.platform.common.api.PageResponse<com.commoncrm.platform.common.audit.dto.AuditLogResponse>>> getStoreAuditLogs(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) String actorUsername,
+            @org.springframework.data.web.PageableDefault(size = 10, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) org.springframework.data.domain.Pageable pageable) {
+        com.commoncrm.platform.common.api.PageResponse<com.commoncrm.platform.common.audit.dto.AuditLogResponse> response =
+                shopOwnerService.getStoreAuditLogs(principal, action, resourceType, actorUsername, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Store audit logs loaded successfully"));
     }
 

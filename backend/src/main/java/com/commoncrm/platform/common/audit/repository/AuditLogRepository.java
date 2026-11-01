@@ -22,6 +22,16 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
                               @Param("actorUsername") String actorUsername,
                               Pageable pageable);
 
+    @Query("SELECT a FROM AuditLog a WHERE a.tenantId = :tenantId AND " +
+           "(:action IS NULL OR a.action = :action) AND " +
+           "(:resourceType IS NULL OR a.resourceType = :resourceType) AND " +
+           "(:actorUsername IS NULL OR LOWER(a.actorUsername) LIKE LOWER(CONCAT('%', :actorUsername, '%')))")
+    Page<AuditLog> searchTenantLogs(@Param("tenantId") Long tenantId,
+                                    @Param("action") String action,
+                                    @Param("resourceType") String resourceType,
+                                    @Param("actorUsername") String actorUsername,
+                                    Pageable pageable);
+
     List<AuditLog> findTop10ByOrderByCreatedAtDesc();
 
     List<AuditLog> findTop10ByTenantIdOrderByCreatedAtDesc(Long tenantId);

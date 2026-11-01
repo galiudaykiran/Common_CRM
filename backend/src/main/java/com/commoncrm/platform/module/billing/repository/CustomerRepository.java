@@ -31,4 +31,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Query("SELECT c FROM Customer c WHERE c.shop.id = :shopId AND " +
            "(c.phone LIKE CONCAT('%', :query, '%') OR LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<Customer> quickSearchTop5(@Param("shopId") Long shopId, @Param("query") String query, Pageable pageable);
+
+    long countByShopId(Long shopId);
 }

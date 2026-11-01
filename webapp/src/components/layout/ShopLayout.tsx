@@ -17,7 +17,6 @@ import {
   LogOut,
   User,
   ShieldCheck,
-  Building2,
   Sparkles,
   Sun,
   Moon,
@@ -26,6 +25,12 @@ import {
   Bell,
   FileText,
   Search,
+  UtensilsCrossed,
+  QrCode,
+  BookOpen,
+  ToggleRight,
+  ChefHat,
+  DollarSign,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -101,6 +106,17 @@ export const ShopLayout: React.FC = () => {
       title: 'Team & People',
       items: [
         { to: '/shop/employees', label: 'Store Employees', icon: UserCheck, always: true, ownerOnly: true },
+      ],
+    },
+    {
+      title: 'Restaurant & Dining',
+      items: [
+        { to: '/shop/dining/dashboard', label: 'Dining Overview', icon: UtensilsCrossed, module: 'DINING' },
+        { to: '/shop/dining/tables', label: 'Tables & QR Codes', icon: QrCode, module: 'DINING' },
+        { to: '/shop/dining/menu', label: 'Menu & Dishes', icon: BookOpen, module: 'DINING' },
+        { to: '/shop/dining/availability', label: 'Dish Availability', icon: ToggleRight, module: 'DINING' },
+        { to: '/shop/dining/orders', label: 'Kitchen & Orders', icon: ChefHat, module: 'DINING' },
+        { to: '/shop/dining/billing', label: 'Dining Billing', icon: Receipt, module: 'DINING' },
       ],
     },
     {
@@ -443,19 +459,6 @@ export const ShopLayout: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              <Building2 size={14} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-              <span style={{ maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={storeInfo?.tenantName || 'Enterprise'}>
-                {storeInfo?.tenantName || 'Enterprise'}
-              </span>
-            </div>
-            <span
-              className={`badge ${storeInfo?.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}
-              style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px' }}
-            >
-              {storeInfo?.status || 'ACTIVE'}
-            </span>
-
             {/* Floating Chip Card for Theme Switch & Alert Notifications */}
             <div className="floating-header-chip" role="toolbar" aria-label="Quick Actions">
               <button

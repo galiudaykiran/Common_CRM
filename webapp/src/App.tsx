@@ -25,6 +25,14 @@ import { CustomerRemindersPage } from './pages/shop/billing/CustomerRemindersPag
 import { CustomerListPage } from './pages/shop/customers/CustomerListPage';
 import { BusinessReportsPage } from './pages/shop/reports/BusinessReportsPage';
 
+import { DiningDashboardPage } from './pages/shop/dining/DiningDashboardPage';
+import { DiningTablesPage } from './pages/shop/dining/DiningTablesPage';
+import { DiningMenuPage } from './pages/shop/dining/DiningMenuPage';
+import { DishAvailabilityPage } from './pages/shop/dining/DishAvailabilityPage';
+import { DiningOrdersPage } from './pages/shop/dining/DiningOrdersPage';
+import { DiningBillingPage } from './pages/shop/dining/DiningBillingPage';
+import { PublicQrMenuPage } from './pages/shop/dining/PublicQrMenuPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -78,6 +86,7 @@ export function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/scan-bridge" element={<MobileScanBridgePage />} />
+              <Route path="/dining/public/menu/:qrToken" element={<PublicQrMenuPage />} />
 
               {/* Platform Admin Routes */}
               <Route
@@ -145,6 +154,14 @@ export function App() {
                     </OwnerOnlyRoute>
                   }
                 />
+
+                {/* Restaurant & Dining Management Module Routes */}
+                <Route path="dining/dashboard" element={<DiningDashboardPage />} />
+                <Route path="dining/tables" element={<DiningTablesPage />} />
+                <Route path="dining/menu" element={<DiningMenuPage />} />
+                <Route path="dining/availability" element={<DishAvailabilityPage />} />
+                <Route path="dining/orders" element={<DiningOrdersPage />} />
+                <Route path="dining/billing" element={<DiningBillingPage />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

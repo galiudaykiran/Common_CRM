@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360" fill="none">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="gridGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="currentColor" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.05"/>
+    </linearGradient>
+    <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="680" cy="180" r="220" fill="url(#ambientGlow)" />
+  <circle cx="480" cy="80" r="140" fill="url(#emeraldGrad)" />
+
+  <!-- Isometric Grid Plane -->
+  <g stroke="url(#gridGrad)" stroke-width="1" stroke-dasharray="3 3" opacity="0.75">
+    <path d="M400,320 L760,140 M440,340 L800,160 M360,300 L720,120 M320,280 L680,100 M280,260 L640,80" />
+    <path d="M480,100 L240,220 M540,130 L300,250 M600,160 L360,280 M660,190 L420,310 M720,220 L480,340" />
+  </g>
+
+  <!-- Isometric Storefront Arc & Building Silhouette -->
+  <g opacity="0.85">
+    <!-- Main Store Arch -->
+    <path d="M520,240 L520,170 C520,135 550,110 590,110 C630,110 660,135 660,170 L660,240 Z" 
+          fill="url(#accentGrad)" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.3" />
+    <!-- Store Awning Lines -->
+    <path d="M520,170 L660,170" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.4" />
+    <path d="M545,170 L545,240 M570,170 L570,240 M610,170 L610,240 M635,170 L635,240" 
+          stroke="currentColor" stroke-width="1" stroke-dasharray="2 2" stroke-opacity="0.2" />
+
+    <!-- Center Store Door -->
+    <rect x="575" y="190" width="30" height="50" rx="3" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.4" />
+
+    <!-- Isometric Tower / Retail Block 1 (Left) -->
+    <path d="M440,200 L490,175 L490,260 L440,285 Z" fill="url(#emeraldGrad)" stroke="currentColor" stroke-width="1" stroke-opacity="0.35" />
+    <path d="M490,175 L540,200 L540,285 L490,260 Z" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" />
+    <path d="M440,200 L490,175 L540,200 L490,225 Z" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="1" stroke-opacity="0.4" />
+
+    <!-- Isometric Tower / Retail Block 2 (Right) -->
+    <path d="M680,180 L730,155 L730,250 L680,275 Z" fill="url(#accentGrad)" stroke="currentColor" stroke-width="1" stroke-opacity="0.35" />
+    <path d="M730,155 L780,180 L780,275 L730,250 Z" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" />
+    <path d="M680,180 L730,155 L780,180 L730,205 Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1" stroke-opacity="0.4" />
+
+    <!-- Floating Shopping Cubes & Gems -->
+    <g transform="translate(460, 110)">
+      <polygon points="20,0 40,10 20,20 0,10" fill="url(#accentGrad)" stroke="currentColor" stroke-width="1" stroke-opacity="0.5"/>
+      <polygon points="0,10 20,20 20,40 0,30" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+      <polygon points="20,20 40,10 40,30 20,40" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+    </g>
+
+    <g transform="translate(640, 60)">
+      <polygon points="24,0 48,12 24,24 0,12" fill="url(#emeraldGrad)" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.6"/>
+      <polygon points="0,12 24,24 24,48 0,36" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+      <polygon points="24,24 48,12 48,36 24,48" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+    </g>
+
+    <g transform="translate(710, 110)">
+      <polygon points="16,0 32,8 16,16 0,8" fill="url(#accentGrad)" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+      <polygon points="0,8 16,16 16,32 0,24" fill="currentColor" fill-opacity="0.06" stroke="currentColor" stroke-width="1" stroke-opacity="0.3"/>
+      <polygon points="16,16 32,8 32,24 16,32" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1" stroke-opacity="0.3"/>
+    </g>
+  </g>
+
+  <!-- Glowing Signal / Digital Nodes -->
+  <circle cx="590" cy="110" r="4" fill="#6366f1" opacity="0.8" />
+  <circle cx="480" cy="120" r="3" fill="#10b981" opacity="0.8" />
+  <circle cx="664" cy="72" r="3.5" fill="#38bdf8" opacity="0.8" />
+  <circle cx="726" cy="118" r="3" fill="#a855f7" opacity="0.8" />
+</svg>

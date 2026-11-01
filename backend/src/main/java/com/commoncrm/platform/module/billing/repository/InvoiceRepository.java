@@ -64,4 +64,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     @Query("SELECT i FROM Invoice i WHERE i.shop.id = :shopId ORDER BY i.createdAt DESC")
     List<Invoice> findRecentInvoices(@Param("shopId") Long shopId, Pageable pageable);
+
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shop.id = :shopId AND i.status = 'COMPLETED' AND i.createdAt BETWEEN :start AND :end")
+    long countCompletedBetween(
+            @Param("shopId") Long shopId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shop.id = :shopId AND (i.paymentStatus = 'UNPAID' OR i.paymentStatus = 'PARTIAL' OR i.status = 'PENDING')")
+    long countPendingOrders(@Param("shopId") Long shopId);
 }

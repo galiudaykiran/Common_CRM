@@ -59,6 +59,8 @@ public class ShopOwnerDashboardResponse {
     public static class ShopStatsDto {
         private long todaySalesCount;
         private BigDecimal todayRevenue;
+        private BigDecimal yesterdayRevenue;
+        private Double revenueGrowthPercent;
         private long totalProducts;
         private long lowStockCount;
         private long activeEmployees;
